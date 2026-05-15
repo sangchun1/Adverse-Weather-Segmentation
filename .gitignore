@@ -216,3 +216,14 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Dataset
+data/raw/
+
+# Outputs
+outputs/checkpoints/
+outputs/predictions/
+outputs/logs/
+*.pth
+*.pt
+*.ckpt

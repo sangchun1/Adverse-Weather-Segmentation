@@ -1,0 +1,77 @@
+[project]
+name = "adverse-weather-segmentation"
+version = "0.1.0"
+description = "Robustness analysis of semantic segmentation models for autonomous driving under adverse weather conditions using the ACDC dataset."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    { name = "Adverse Weather Segmentation Team" }
+]
+license = { text = "MIT" }
+keywords = [
+    "semantic-segmentation",
+    "computer-vision",
+    "deep-learning",
+    "autonomous-driving",
+    "adverse-weather",
+    "acdc-dataset",
+    "robustness-analysis"
+]
+
+dependencies = [
+    "numpy>=1.24.0",
+    "pandas>=2.0.0",
+    "opencv-python>=4.8.0",
+    "pillow>=10.0.0",
+    "matplotlib>=3.7.0",
+    "scikit-learn>=1.3.0",
+    "tqdm>=4.65.0",
+    "pyyaml>=6.0",
+    "albumentations>=1.3.0"
+]
+
+[project.optional-dependencies]
+models = [
+    "segmentation-models-pytorch>=0.3.3",
+    "timm>=0.9.0"
+]
+
+notebooks = [
+    "jupyter>=1.0.0",
+    "ipykernel>=6.25.0"
+]
+
+dev = [
+    "black>=23.0.0",
+    "ruff>=0.1.0"
+]
+
+all = [
+    "segmentation-models-pytorch>=0.3.3",
+    "timm>=0.9.0",
+    "jupyter>=1.0.0",
+    "ipykernel>=6.25.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0"
+]
+
+[project.urls]
+Repository = "https://github.com/sangchun1/Adverse-Weather-Segmentation"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.black]
+line-length = 88
+
+[tool.ruff]
+line-length = 88
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = []
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
