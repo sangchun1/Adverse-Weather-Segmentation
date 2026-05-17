@@ -1,0 +1,162 @@
+seed: 42
+
+data:
+  root: "."
+  split_dir: "data/splits"
+  # split_dir: "data/splits/enhanced/sci"
+  # split_dir: "data/splits/enhanced/zero_dce"
+  # split_dir: "data/splits/enhanced/retinexformer"
+  train_csv: "train.csv"
+  val_csv: "val.csv"
+  test_csv: "test.csv"
+
+  input_width: 1024
+  input_height: 512
+  num_classes: 19
+  ignore_index: 255
+
+  # ImageNet normalization
+  mean: [0.485, 0.456, 0.406]
+  std: [0.229, 0.224, 0.225]
+
+  class_names:
+    - road
+    - sidewalk
+    - building
+    - wall
+    - fence
+    - pole
+    - traffic light
+    - traffic sign
+    - vegetation
+    - terrain
+    - sky
+    - person
+    - rider
+    - car
+    - truck
+    - bus
+    - train
+    - motorcycle
+    - bicycle
+
+model:
+  name: "unet"
+  in_channels: 3
+  num_classes: 19
+  base_channels: 64
+
+loss:
+  name: "cross_entropy"
+
+optimizer:
+  name: "adamw"
+  lr: 0.001
+  weight_decay: 0.0001
+
+scheduler:
+  name: "cosine_annealing"
+  T_max: 50
+  eta_min: 0.000001
+
+train:
+  epochs: 50
+  batch_size: 8
+  num_workers: 4
+  pin_memory: true
+  amp: true
+  grad_clip_norm: null
+  log_interval: 20
+  val_interval: 1
+
+augmentation:
+  enabled: false
+  name: "none"
+
+enhancement:
+  enabled: false
+  name: none
+
+# # Gamma
+# enhancement:
+#   enabled: true
+#   name: "gamma"
+#   apply_to: ["train", "val"]
+#   gamma: 0.6
+
+# # CLAHE
+# enhancement:
+#   enabled: true
+#   name: "clahe"
+#   apply_to: ["train", "val"]
+#   clip_limit: 2.0
+#   tile_grid_size: [8, 8]
+#   color_space: "lab"
+
+# # Gamma + CLAHE
+# enhancement:
+#   enabled: true
+#   name: "gamma_clahe"
+#   apply_to: ["train", "val"]
+#   gamma: 0.7
+#   clip_limit: 2.0
+#   tile_grid_size: [8, 8]
+#   color_space: "lab"
+
+checkpoint:
+  save_dir: "outputs/checkpoints/night"
+  # save_dir: "outputs/checkpoints/night_gamma"
+  # save_dir: "outputs/checkpoints/night_clahe"
+  # save_dir: "outputs/checkpoints/night_sci"
+  # save_dir: "outputs/checkpoints/night_zero_dce"
+  # save_dir: "outputs/checkpoints/night_retinexformer"
+  save_best_name: "best_miou.pth"
+  save_last_name: "last.pth"
+  monitor: "val_miou"
+  mode: "max"
+
+early_stopping:
+  enabled: true
+  monitor: "val_miou"
+  mode: "max"
+  patience: 10
+  min_delta: 0.0001
+
+wandb:
+  enabled: true
+  project: "adverse-weather-segmentation"
+  entity: null
+  run_name: "night_unet"
+  # run_name: "night_gamma_unet"
+  # run_name: "night_clahe_unet"
+  # run_name: "night_sci_unet"
+  # run_name: "night_zero_dce_unet"
+  # run_name: "night_retinexformer_unet"
+  tags:
+    - night
+    # - enhancement
+    # - gamma
+    # - clahe
+    # - sci
+    # - zero_dce
+    # - retinexformer
+    - unet
+    - acdc
+  notes: "U-Net baseline on raw ACDC night images without enhancement."
+  # notes: "U-Net on ACDC night images with on-the-fly gamma correction, gamma=0.6."
+  # notes: "U-Net on ACDC night images with on-the-fly CLAHE on LAB luminance channel."
+  # notes: "U-Net trained and evaluated on SCI-enhanced ACDC night images. Enhancement is precomputed offline."
+  # notes: "U-Net trained and evaluated on Zero-DCE-enhanced ACDC night images. Enhancement is precomputed offline."
+  # notes: "U-Net trained and evaluated on Retinexformer-enhanced ACDC night images. Enhancement is precomputed offline."
+  dir: "outputs"
+
+evaluate:
+  batch_size: 8
+  num_workers: 4
+  save_predictions: false
+  output_dir: "checkpoints/night"
+  # output_dir: "checkpoints/night_gamma"
+  # output_dir: "checkpoints/night_clahe"
+  # output_dir: "checkpoints/night_sci"
+  # output_dir: "checkpoints/night_zero_dce"
+  # output_dir: "checkpoints/night_retinexformer"

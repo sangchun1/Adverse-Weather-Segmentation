@@ -219,6 +219,8 @@ __marimo__/
 
 # Dataset
 data/raw/
+data/enhanced
+third_party/
 
 # Outputs
 outputs/checkpoints/

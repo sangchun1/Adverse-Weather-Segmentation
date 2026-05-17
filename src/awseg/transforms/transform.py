@@ -6,6 +6,8 @@ import numpy as np
 import torch
 from PIL import Image
 
+from awseg.transforms.enhancement import build_enhancer
+
 
 class BaselineTransform:
     """Baseline transform for semantic segmentation.
@@ -27,6 +29,7 @@ class BaselineTransform:
         size: Tuple[int, int],
         mean: tuple[float, float, float] = (0.485, 0.456, 0.406),
         std: tuple[float, float, float] = (0.229, 0.224, 0.225),
+        enhancer=None,
     ) -> None:
         """Initialize baseline transform.
 
@@ -38,6 +41,7 @@ class BaselineTransform:
         self.height, self.width = size
         self.mean = np.array(mean, dtype=np.float32)
         self.std = np.array(std, dtype=np.float32)
+        self.enhancer = enhancer
 
     def __call__(
         self,
@@ -54,8 +58,10 @@ class BaselineTransform:
             image: FloatTensor with shape [3, H, W].
             mask: LongTensor with shape [H, W], or None.
         """
-        if image.mode != "RGB":
-            image = image.convert("RGB")
+        if self.enhancer is not None:
+            image = self.enhancer(image)
+            if image.mode != "RGB":
+                image = image.convert("RGB")
 
         image = image.resize((self.width, self.height), Image.BILINEAR)
 
@@ -100,8 +106,11 @@ def build_transform(config: dict, split: str) -> BaselineTransform:
     mean = tuple(data_config.get("mean", [0.485, 0.456, 0.406]))
     std = tuple(data_config.get("std", [0.229, 0.224, 0.225]))
 
+    enhancer = build_enhancer(config, split=split)
+
     return BaselineTransform(
         size=(height, width),
         mean=mean,
         std=std,
+        enhancer=enhancer,
     )
