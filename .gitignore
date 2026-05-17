@@ -227,3 +227,5 @@ outputs/logs/
 *.pth
 *.pt
 *.ckpt
+
+z.md
