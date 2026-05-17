@@ -1,0 +1,53 @@
+{
+  "task": "train",
+  "created_at": "2026-05-17 18:26:07",
+  "source": "Pasted text.txt",
+  "config_path": "configs/baseline.yaml",
+  "condition": null,
+  "device": "cuda",
+  "train_samples": 1600,
+  "val_samples": 406,
+  "model": {
+    "name": "unet",
+    "architecture": "U-Net from scratch",
+    "num_classes": 19,
+    "trainable_parameters": 13392531
+  },
+  "data": {
+    "dataset": "ACDC",
+    "semantic_classes": "ACDC/Cityscapes 19 classes",
+    "input_size": {
+      "width": 1024,
+      "height": 512
+    },
+    "ignore_index": 255
+  },
+  "training_setup": {
+    "epochs_requested": 50,
+    "batch_size": 8,
+    "optimizer": "AdamW",
+    "learning_rate": 0.001,
+    "weight_decay": 0.0001,
+    "scheduler": "CosineAnnealingLR",
+    "scheduler_T_max": 50,
+    "scheduler_eta_min": 1e-06,
+    "loss": "CrossEntropyLoss(ignore_index=255)"
+  },
+  "wandb": {
+    "run_id": "2ccff5ed",
+    "run_name": "unet_baseline",
+    "local_dir": "outputs/wandb/run-20260517_182607-2ccff5ed",
+    "url": "https://wandb.ai/sangchun1-chung-ang-university/adverse-weather-segmentation/runs/2ccff5ed"
+  },
+  "epochs_completed": 50,
+  "best_miou": 0.4799,
+  "best_epoch": 43,
+  "final_train_loss": 0.073,
+  "final_train_miou": 0.792,
+  "final_val_loss": 0.43,
+  "final_val_miou": 0.4786,
+  "stopped_early": false,
+  "stopped_epoch": null,
+  "best_checkpoint": "outputs/checkpoints/baseline/best_miou.pth",
+  "last_checkpoint": "outputs/checkpoints/baseline/last.pth"
+}

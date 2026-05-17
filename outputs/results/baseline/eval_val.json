@@ -1,0 +1,53 @@
+{
+  "task": "evaluate",
+  "created_at": "2026-05-17 18:26:07",
+  "source": "Pasted text.txt",
+  "config_path": "configs/baseline.yaml",
+  "checkpoint": "outputs/checkpoints/baseline/best_miou.pth",
+  "checkpoint_epoch": 43,
+  "checkpoint_best_miou": 0.4799,
+  "split": "val",
+  "condition": null,
+  "device": "cuda",
+  "num_samples": 406,
+  "miou": 0.4799,
+  "class_iou": {
+    "road": 0.9078,
+    "sidewalk": 0.6827,
+    "building": 0.7852,
+    "wall": 0.4038,
+    "fence": 0.2854,
+    "pole": 0.4825,
+    "traffic_light": 0.5301,
+    "traffic_sign": 0.3622,
+    "vegetation": 0.8196,
+    "terrain": 0.4186,
+    "sky": 0.9389,
+    "person": 0.2466,
+    "rider": 0.0312,
+    "car": 0.7005,
+    "truck": 0.2017,
+    "bus": 0.3765,
+    "train": 0.6581,
+    "motorcycle": 0.0741,
+    "bicycle": 0.2118
+  },
+  "condition_results": {
+    "fog": {
+      "miou": 0.5355,
+      "num_images": 100
+    },
+    "night": {
+      "miou": 0.3648,
+      "num_images": 106
+    },
+    "rain": {
+      "miou": 0.4784,
+      "num_images": 100
+    },
+    "snow": {
+      "miou": 0.4943,
+      "num_images": 100
+    }
+  }
+}

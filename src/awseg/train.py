@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import argparse
+import json
+import math
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict
 
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Subset
 
 from awseg.dataset import build_dataset, get_class_names
 from awseg.logger import build_logger
@@ -40,15 +43,140 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Optional checkpoint path to resume training.",
     )
+    parser.add_argument(
+        "--condition",
+        type=str,
+        default=None,
+        help=(
+            "Optional weather condition filter. "
+            "Examples: fog, rain, snow, night. "
+            "If set, both train and val splits use only this condition."
+        ),
+    )
+    parser.add_argument(
+        "--result-dir",
+        type=str,
+        default="results/baseline",
+        help="Directory to save small JSON result summaries for GitHub tracking.",
+    )
+    parser.add_argument(
+        "--no-save-results",
+        dest="save_results",
+        action="store_false",
+        default=True,
+        help="Disable saving JSON result summaries.",
+    )
     return parser.parse_args()
+
+
+
+def _json_safe(value: Any) -> Any:
+    """Convert values to strict JSON-safe objects."""
+    if isinstance(value, dict):
+        return {str(k): _json_safe(v) for k, v in value.items()}
+
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(v) for v in value]
+
+    if isinstance(value, torch.Tensor):
+        return _json_safe(value.detach().cpu().tolist())
+
+    if isinstance(value, float):
+        if math.isnan(value) or math.isinf(value):
+            return None
+        return value
+
+    if isinstance(value, Path):
+        return str(value)
+
+    return value
+
+
+def save_json(data: Dict[str, Any], path: str | Path) -> None:
+    """Save dictionary as strict JSON."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    with path.open("w", encoding="utf-8") as f:
+        json.dump(
+            _json_safe(data),
+            f,
+            indent=2,
+            ensure_ascii=False,
+            allow_nan=False,
+        )
+
+
+def get_condition_suffix(condition: str | None) -> str:
+    """Return filename suffix for condition-specific results.
+
+    Examples:
+        condition=None  -> ""
+        condition="fog" -> "_fog"
+    """
+    return f"_{condition}" if condition is not None else ""
+
+
+def get_condition_label(condition: str | None) -> str | None:
+    """Return condition value for JSON content.
+
+    None means all conditions are used.
+    """
+    return condition
+
+
+def get_timestamp() -> str:
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def get_available_conditions(dataset: Any) -> list[str]:
+    """Return sorted condition names from a dataset created by build_dataset()."""
+    if not hasattr(dataset, "samples"):
+        return []
+
+    return sorted(
+        {str(sample.get("condition", "unknown")) for sample in dataset.samples}
+    )
+
+
+def filter_dataset_by_condition(dataset: Any, condition: str, split: str) -> Subset:
+    """Filter dataset by weather condition using dataset.samples metadata."""
+    if not hasattr(dataset, "samples"):
+        raise AttributeError(
+            "Dataset does not have `samples` metadata, so condition filtering is unavailable."
+        )
+
+    indices = [
+        idx
+        for idx, sample in enumerate(dataset.samples)
+        if str(sample.get("condition", "unknown")) == condition
+    ]
+
+    if len(indices) == 0:
+        available_conditions = get_available_conditions(dataset)
+        raise ValueError(
+            f"No samples found for condition={condition!r} in split={split!r}. "
+            f"Available conditions: {available_conditions}"
+        )
+
+    print(
+        f"Using condition filter for {split}: {condition} "
+        f"({len(indices)} / {len(dataset)} samples)"
+    )
+
+    return Subset(dataset, indices)
 
 
 def build_dataloader(
     config: Dict[str, Any],
     split: str,
     shuffle: bool,
+    condition: str | None = None,
 ) -> DataLoader:
     dataset = build_dataset(config, split=split)
+
+    if condition is not None:
+        dataset = filter_dataset_by_condition(dataset, condition=condition, split=split)
 
     train_config = config["train"]
     batch_size = int(train_config["batch_size"])
@@ -339,8 +467,18 @@ def main() -> None:
 
     logger = build_logger(config)
 
-    train_loader = build_dataloader(config, split="train", shuffle=True)
-    val_loader = build_dataloader(config, split="val", shuffle=False)
+    train_loader = build_dataloader(
+        config,
+        split="train",
+        shuffle=True,
+        condition=args.condition,
+    )
+    val_loader = build_dataloader(
+        config,
+        split="val",
+        shuffle=False,
+        condition=args.condition,
+    )
 
     model = build_model(config).to(device)
     criterion = build_loss(config).to(device)
@@ -357,6 +495,8 @@ def main() -> None:
     class_names = get_class_names()
 
     print(f"Model: {config['model']['name']}")
+    if args.condition is not None:
+        print(f"Condition filter: {args.condition}")
     print(f"Train samples: {len(train_loader.dataset)}")
     print(f"Val samples: {len(val_loader.dataset)}")
     print(f"Trainable parameters: {count_parameters(model):,}")
@@ -402,6 +542,15 @@ def main() -> None:
         print(f"Global step: {global_step}")
 
     epochs = int(config["train"]["epochs"])
+    training_history: list[Dict[str, Any]] = []
+    stopped_early = False
+    stopped_epoch = None
+
+    result_dir = Path(args.result_dir)
+    condition_suffix = get_condition_suffix(args.condition)
+    condition_label = get_condition_label(args.condition)
+    train_summary_path = result_dir / f"train{condition_suffix}.json"
+    train_history_path = result_dir / f"train_history{condition_suffix}.json"
 
     try:
         for epoch in range(start_epoch, epochs + 1):
@@ -500,6 +649,7 @@ def main() -> None:
                 "best_miou": best_miou,
                 "early_bad_epochs": early_bad_epochs,
                 "early_stopping": early_config,
+                "condition": args.condition,
                 "config": config,
             }
 
@@ -508,7 +658,26 @@ def main() -> None:
             if is_best:
                 save_checkpoint(checkpoint_state, save_dir / "best_miou.pth")
 
+            epoch_record = {
+                "epoch": int(epoch),
+                "global_step": int(global_step),
+                "train_loss": float(train_metrics["loss"]),
+                "train_miou": float(train_metrics["miou"]),
+                "val_loss": float(val_metrics["loss"]),
+                "val_miou": float(current_miou),
+                "lr": float(current_lr),
+                "best_miou": float(best_miou),
+                "is_best": bool(is_best),
+                "early_bad_epochs": int(early_bad_epochs),
+            }
+            training_history.append(epoch_record)
+
+            if args.save_results:
+                save_json(training_history, train_history_path)
+
             if early_enabled and early_bad_epochs >= early_patience:
+                stopped_early = True
+                stopped_epoch = epoch
                 print(
                     f"Early stopping triggered at epoch {epoch}. "
                     f"Best validation mIoU: {best_miou:.4f}"
@@ -524,13 +693,73 @@ def main() -> None:
                 break
 
         print(f"Training finished. Best validation mIoU: {best_miou:.4f}")
+
+        if args.save_results:
+            train_summary = {
+                "task": "train",
+                "created_at": get_timestamp(),
+                "config_path": str(args.config),
+                "condition": condition_label,
+                "model": config.get("model", {}),
+                "optimizer": config.get("optimizer", {}),
+                "scheduler": config.get("scheduler", {}),
+                "loss": config.get("loss", {}),
+                "input_size": {
+                    "height": int(config["data"]["input_height"]),
+                    "width": int(config["data"]["input_width"]),
+                },
+                "num_classes": int(config["data"]["num_classes"]),
+                "ignore_index": int(config["data"].get("ignore_index", 255)),
+                "epochs_requested": int(epochs),
+                "epochs_completed": int(len(training_history)),
+                "best_miou": float(best_miou),
+                "best_epoch": (
+                    max(training_history, key=lambda x: x["val_miou"])["epoch"]
+                    if len(training_history) > 0
+                    else None
+                ),
+                "final_train_loss": (
+                    float(training_history[-1]["train_loss"])
+                    if len(training_history) > 0
+                    else None
+                ),
+                "final_train_miou": (
+                    float(training_history[-1]["train_miou"])
+                    if len(training_history) > 0
+                    else None
+                ),
+                "final_val_loss": (
+                    float(training_history[-1]["val_loss"])
+                    if len(training_history) > 0
+                    else None
+                ),
+                "final_val_miou": (
+                    float(training_history[-1]["val_miou"])
+                    if len(training_history) > 0
+                    else None
+                ),
+                "stopped_early": bool(stopped_early),
+                "stopped_epoch": stopped_epoch,
+                "early_stopping": early_config,
+                "num_train_samples": int(len(train_loader.dataset)),
+                "num_val_samples": int(len(val_loader.dataset)),
+                "best_checkpoint": str(save_dir / "best_miou.pth"),
+                "last_checkpoint": str(save_dir / "last.pth"),
+                "history_file": str(train_history_path),
+                "history": training_history,
+            }
+            save_json(train_summary, train_summary_path)
+            print(f"Saved train result JSON: {train_summary_path}")
+            print(f"Saved train history JSON: {train_history_path}")
+
         print("Best checkpoint:", save_dir / "best_miou.pth")
 
         if (save_dir / "best_miou.pth").exists():
             print("\nFinal best checkpoint can be evaluated with:")
+            condition_arg = f" --condition {args.condition}" if args.condition is not None else ""
             print(
                 f"python -m awseg.evaluate --config {args.config} "
-                f"--checkpoint {save_dir / 'best_miou.pth'} --split val"
+                f"--checkpoint {save_dir / 'best_miou.pth'} --split val{condition_arg}"
             )
 
     finally:
