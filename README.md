@@ -126,3 +126,28 @@ basic_aug.py   → flip, crop, blur, color jitter
 weather_aug.py → synthetic fog/rain/snow/night augmentation
 ```
 
+## 6. 실행 방법
+
+코드 추가 방법:
+1. 본인 실험 설정을 configs/에 본인 yaml 파일에 추가
+2. models/losses/transforms 중 담당 영역에 새 파일을 추가
+3. builder.py에 등록
+4. run_baseline.sh를 참고하여 실행 sh 파일 작성
+
+코드 실행 방법:
+1. `wandb login`
+2. `conda activate awseg`
+3. `bash scripts/<실행파일이름>.sh`
+
+깃허브에 올리는 방법:
+1. `git switch <본인 브랜치 이름>`
+2. `git add .` -> 특정 파일만 추가하고 싶으면 "." 대신 파일경로 추가 (예: `git add scripts/run.sh`)
+3. `git commit -m "<커밋 이름>"`
+4. `git pull origin <본인 branch 이름>`
+5. `git push origin <본인 branch 이름>`
+
+브랜치 배정
+- 현민: `fog`
+- 규영: `rain`
+- 경민: `snow`
+- 상춘: `night`
