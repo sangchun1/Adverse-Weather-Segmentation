@@ -70,12 +70,15 @@ Adverse-Weather-Segmentation/
     └── transforms/                 # transform 및 augmentation 코드 (경민&상춘)
 ```
 
-## 3. Dataset Preparation
+## 3. 데이터셋 준비
 
 원본 데이터셋은 `data/raw/` 안에 위 구조처럼 보관. 
 
 split CSV 생성을 위해서 다음 명령어를 terminal에 실행:
 ```bash
+conda activate awseg
+pip install torch==2.7.1 torchvision==0.22.1 torchaudio==2.7.1 --index-url https://download.pytorch.org/whl/cu128 # 본인 cuda 버전에 맞게 수정
+pip install -e .
 python scripts/prepare_dataset.py
 ```
 
