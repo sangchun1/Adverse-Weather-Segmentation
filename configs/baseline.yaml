@@ -78,10 +78,18 @@ enhancement:
   name: "none"
 
 checkpoint:
-  save_dir: "checkpoints/baseline"
-  save_best_name: "best.pth"
+  save_dir: "outputs/checkpoints/baseline"
+  save_best_name: "best_miou.pth"
+  save_last_name: "last.pth"
   monitor: "val_miou"
   mode: "max"
+
+early_stopping:
+  enabled: true
+  monitor: "val_miou"
+  mode: "max"
+  patience: 10
+  min_delta: 0.0001
 
 wandb:
   enabled: true
@@ -93,6 +101,7 @@ wandb:
     - unet
     - acdc
   notes: "U-Net from scratch baseline with 1024x512 input and CrossEntropyLoss."
+  dir: "outputs"
 
 evaluate:
   batch_size: 8

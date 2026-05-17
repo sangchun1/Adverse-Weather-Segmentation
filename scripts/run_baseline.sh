@@ -8,13 +8,15 @@ RUN_NAME="baseline_$(date +%Y%m%d_%H%M%S)"
 LOG_DIR="outputs/logs"
 LOG_FILE="${LOG_DIR}/${RUN_NAME}.log"
 
-CHECKPOINT_PATH="checkpoints/baseline/best.pth"
+CHECKPOINT_PATH="outputs/checkpoints/baseline/best_miou.pth"
 EVAL_SPLIT="val"
 VIS_DIR="outputs/visualizations/${RUN_NAME}"
 NUM_VIS_SAMPLES="${NUM_VIS_SAMPLES:-20}"
 
 mkdir -p "${LOG_DIR}"
 mkdir -p "${VIS_DIR}"
+mkdir -p "outputs/checkpoints"
+mkdir -p "outputs/wandb"
 
 export CONFIG_PATH
 export CHECKPOINT_PATH
@@ -25,6 +27,7 @@ export NUM_VIS_SAMPLES
 echo "Starting baseline pipeline with nohup..."
 echo "Config: ${CONFIG_PATH}"
 echo "Log file: ${LOG_FILE}"
+echo "Checkpoint: ${CHECKPOINT_PATH}"
 echo "Visualization dir: ${VIS_DIR}"
 
 nohup bash -c '

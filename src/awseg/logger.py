@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Dict, Optional
 
 
@@ -23,7 +24,7 @@ class ExperimentLogger:
     def _init_wandb(self) -> None:
         try:
             import wandb
-        except ImportError as exc:
+        except ImportError:
             self.enabled = False
             print(
                 "[Logger] wandb is enabled in config, but wandb is not installed. "
@@ -37,14 +38,22 @@ class ExperimentLogger:
         entity = self.wandb_config.get("entity", None)
         run_name = self.wandb_config.get("run_name", None)
         tags = self.wandb_config.get("tags", None)
+        notes = self.wandb_config.get("notes", None)
         mode = self.wandb_config.get("mode", None)
+
+        # Store local wandb files under outputs/wandb by default.
+        wandb_dir = self.wandb_config.get("dir", "outputs/wandb")
+        wandb_dir = Path(wandb_dir)
+        wandb_dir.mkdir(parents=True, exist_ok=True)
 
         init_kwargs = {
             "project": project,
             "entity": entity,
             "name": run_name,
             "tags": tags,
+            "notes": notes,
             "config": self.config,
+            "dir": str(wandb_dir),
         }
 
         if mode is not None:

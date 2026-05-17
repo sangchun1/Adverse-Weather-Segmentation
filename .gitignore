@@ -224,6 +224,7 @@ data/raw/
 outputs/checkpoints/
 outputs/predictions/
 outputs/logs/
+outputs/wandb/
 *.pth
 *.pt
 *.ckpt
