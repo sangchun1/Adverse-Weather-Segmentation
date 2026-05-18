@@ -108,16 +108,6 @@ def save_json(data: Dict[str, Any], path: str | Path) -> None:
         )
 
 
-def get_condition_suffix(condition: str | None) -> str:
-    """Return filename suffix for condition-specific results.
-
-    Examples:
-        condition=None  -> ""
-        condition="fog" -> "_fog"
-    """
-    return f"_{condition}" if condition is not None else ""
-
-
 def get_condition_label(condition: str | None) -> str | None:
     """Return condition value for JSON content.
 
@@ -342,9 +332,8 @@ def main() -> None:
             )
 
     if args.save_results:
-        condition_suffix = get_condition_suffix(args.condition)
         condition_label = get_condition_label(args.condition)
-        result_path = Path(args.result_dir) / f"eval_{args.split}{condition_suffix}.json"
+        result_path = Path(args.result_dir) / f"eval_{args.split}.json"
 
         class_iou = {
             class_name: iou
