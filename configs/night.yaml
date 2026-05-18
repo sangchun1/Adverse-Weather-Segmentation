@@ -2,10 +2,10 @@ seed: 42
 
 data:
   root: "."
-  split_dir: "data/splits"
+  # split_dir: "data/splits"
   # split_dir: "data/splits/enhanced/sci"
   # split_dir: "data/splits/enhanced/zero_dce"
-  # split_dir: "data/splits/enhanced/retinexformer"
+  split_dir: "data/splits/enhanced/retinexformer"
   train_csv: "train.csv"
   val_csv: "val.csv"
   test_csv: "test.csv"
@@ -104,12 +104,13 @@ enhancement:
 #   color_space: "lab"
 
 checkpoint:
-  save_dir: "outputs/checkpoints/night"
+  # save_dir: "outputs/checkpoints/night"
   # save_dir: "outputs/checkpoints/night_gamma"
   # save_dir: "outputs/checkpoints/night_clahe"
+  # save_dir: "outputs/checkpoints/night_gamma_clahe"
   # save_dir: "outputs/checkpoints/night_sci"
   # save_dir: "outputs/checkpoints/night_zero_dce"
-  # save_dir: "outputs/checkpoints/night_retinexformer"
+  save_dir: "outputs/checkpoints/night_retinexformer"
   save_best_name: "best_miou.pth"
   save_last_name: "last.pth"
   monitor: "val_miou"
@@ -126,37 +127,40 @@ wandb:
   enabled: true
   project: "adverse-weather-segmentation"
   entity: null
-  run_name: "night_unet"
+  # run_name: "night_unet"
   # run_name: "night_gamma_unet"
   # run_name: "night_clahe_unet"
+  # run_name: "night_gamma_clahe_unet"
   # run_name: "night_sci_unet"
   # run_name: "night_zero_dce_unet"
-  # run_name: "night_retinexformer_unet"
+  run_name: "night_retinexformer_unet"
   tags:
     - night
-    # - enhancement
+    - enhancement
     # - gamma
     # - clahe
     # - sci
     # - zero_dce
-    # - retinexformer
+    - retinexformer
     - unet
     - acdc
-  notes: "U-Net baseline on raw ACDC night images without enhancement."
+  # notes: "U-Net baseline on raw ACDC night images without enhancement."
   # notes: "U-Net on ACDC night images with on-the-fly gamma correction, gamma=0.6."
   # notes: "U-Net on ACDC night images with on-the-fly CLAHE on LAB luminance channel."
+  # notes: "U-Net on ACDC night images with on-the-fly gamma correction and CLAHE on LAB luminance channel."
   # notes: "U-Net trained and evaluated on SCI-enhanced ACDC night images. Enhancement is precomputed offline."
   # notes: "U-Net trained and evaluated on Zero-DCE-enhanced ACDC night images. Enhancement is precomputed offline."
-  # notes: "U-Net trained and evaluated on Retinexformer-enhanced ACDC night images. Enhancement is precomputed offline."
+  notes: "U-Net trained and evaluated on Retinexformer-enhanced ACDC night images. Enhancement is precomputed offline."
   dir: "outputs"
 
 evaluate:
   batch_size: 8
   num_workers: 4
   save_predictions: false
-  output_dir: "checkpoints/night"
-  # output_dir: "checkpoints/night_gamma"
-  # output_dir: "checkpoints/night_clahe"
-  # output_dir: "checkpoints/night_sci"
-  # output_dir: "checkpoints/night_zero_dce"
-  # output_dir: "checkpoints/night_retinexformer"
+  # output_dir: "outputs/checkpoints/night"
+  # output_dir: "outputs/checkpoints/night_gamma"
+  # output_dir: "outputs/checkpoints/night_clahe"
+  # output_dir: "outputs/checkpoints/night_gamma_clahe"
+  # output_dir: "outputs/checkpoints/night_sci"
+  # output_dir: "outputs/checkpoints/night_zero_dce"
+  output_dir: "outputs/checkpoints/night_retinexformer"

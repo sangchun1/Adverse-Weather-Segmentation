@@ -25,12 +25,12 @@ SAMPLES_PER_CONDITION="${SAMPLES_PER_CONDITION:-5}"
 VIS_SEED="${VIS_SEED:-42}"
 SAVE_PREDICTIONS="${SAVE_PREDICTIONS:-false}"
 
-VIS_DIR="outputs/visualizations/${RUN_NAME}"
+RESULT_DIR="outputs/results/${EXPERIMENT_NAME}"
+VIS_DIR="outputs/visualizations/${EXPERIMENT_NAME}"
 
 mkdir -p "${LOG_DIR}"
 mkdir -p "${VIS_DIR}"
 mkdir -p "outputs/checkpoints"
-mkdir -p "outputs/evaluations"
 mkdir -p "outputs"
 
 CHECKPOINT_PATH="$(
@@ -77,6 +77,7 @@ export SAMPLES_PER_CONDITION
 export VIS_SEED
 export SAVE_PREDICTIONS
 export EVAL_OUTPUT_DIR
+export RESULT_DIR
 
 echo "Starting night pipeline with nohup..."
 echo "Config: ${CONFIG_PATH}"
@@ -85,7 +86,7 @@ echo "Condition: ${CONDITION}"
 echo "Log file: ${LOG_FILE}"
 echo "Checkpoint: ${CHECKPOINT_PATH}"
 echo "Evaluation split: ${EVAL_SPLIT}"
-echo "Evaluation output dir: ${EVAL_OUTPUT_DIR}"
+echo "Result dir: ${RESULT_DIR}"
 echo "Visualization dir: ${VIS_DIR}"
 echo "Samples per condition: ${SAMPLES_PER_CONDITION}"
 echo "Visualization seed: ${VIS_SEED}"
@@ -102,6 +103,7 @@ echo "============================================================"
 
 python -m awseg.train \
   --config "${CONFIG_PATH}" \
+  --result-dir "${RESULT_DIR}" \
   "${CONDITION_ARGS[@]}"
 
 echo ""
@@ -118,6 +120,7 @@ python -m awseg.evaluate \
   --config "${CONFIG_PATH}" \
   --checkpoint "${CHECKPOINT_PATH}" \
   --split "${EVAL_SPLIT}" \
+  --result-dir "${RESULT_DIR}" \
   "${EVAL_ARGS[@]}" \
   "${CONDITION_ARGS[@]}"
 
