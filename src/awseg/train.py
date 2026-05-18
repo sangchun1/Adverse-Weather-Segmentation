@@ -547,10 +547,9 @@ def main() -> None:
     stopped_epoch = None
 
     result_dir = Path(args.result_dir)
-    condition_suffix = get_condition_suffix(args.condition)
     condition_label = get_condition_label(args.condition)
-    train_summary_path = result_dir / f"train{condition_suffix}.json"
-    train_history_path = result_dir / f"train_history{condition_suffix}.json"
+    train_summary_path = result_dir / "train.json"
+    train_history_path = result_dir / "train_history.json"
 
     try:
         for epoch in range(start_epoch, epochs + 1):
