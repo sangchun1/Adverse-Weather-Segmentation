@@ -1,0 +1,8 @@
+folder,method,miou,num_samples,json_path,delta_vs_baseline
+night_clahe,CLAHE,0.3301224410533905,106,outputs/results/night_clahe/eval_val.json,0.013597071170806885
+night_gamma,Gamma,0.3259880244731903,106,outputs/results/night_gamma/eval_val.json,0.00946265459060669
+night_zero_dce,Zero-DCE,0.3211252987384796,106,outputs/results/night_zero_dce/eval_val.json,0.004599928855895996
+night_retinexformer,RetinexFormer,0.3207530379295349,106,outputs/results/night_retinexformer/eval_val.json,0.004227668046951294
+night_gamma_clahe,Gamma+CLAHE,0.32010164856910706,106,outputs/results/night_gamma_clahe/eval_val.json,0.0035762786865234375
+night_sci,SCI,0.31704577803611755,106,outputs/results/night_sci/eval_val.json,0.0005204081535339355
+night,No Enhancement,0.3165253698825836,106,outputs/results/night/eval_val.json,0.0

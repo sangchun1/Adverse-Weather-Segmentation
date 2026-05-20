@@ -1,15 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Usage:
-#   bash scripts/run_night.sh
-#   bash scripts/run_night.sh night_gamma
-#   bash scripts/run_night.sh night_sci
-#
-# Note:
-#   This script always uses configs/night.yaml.
-#   Edit configs/night.yaml before running each experiment.
-
 CONFIG_PATH="configs/night.yaml"
 EXPERIMENT_NAME="${1:-night}"
 
