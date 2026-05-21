@@ -42,9 +42,9 @@ data:
 
 model:
   name: "unet"
-  in_channels: 3
+  # in_channels: 3
   # in_channels: 4
-  # in_channels: 5
+  in_channels: 5
   num_classes: 19
   base_channels: 64
 
@@ -75,13 +75,13 @@ augmentation:
   # enabled: false
   # name: "none"
 
-  # Frequency augmentation
-  enabled: true
-  name: "frequency_aug"
-  p: 0.5
-  low_radius_ratio: 0.08
-  low_scale_range: [0.8, 1.2]
-  high_scale_range: [0.9, 1.1]
+  # # Frequency augmentation
+  # enabled: true
+  # name: "frequency_aug"
+  # p: 0.5
+  # low_radius_ratio: 0.08
+  # low_scale_range: [0.8, 1.2]
+  # high_scale_range: [0.9, 1.1]
 
   # # low-frequency map
   # enabled: true
@@ -90,12 +90,12 @@ augmentation:
   # mean: 0.5
   # std: 0.5
 
-  # # low + high-frequency map
-  # enabled: true
-  # name: "frequency_map_low_high"
-  # low_radius_ratio: 0.08
-  # mean: 0.5
-  # std: 0.5
+  # low + high-frequency map
+  enabled: true
+  name: "frequency_map_low_high"
+  low_radius_ratio: 0.08
+  mean: 0.5
+  std: 0.5
 
 enhancement:
   enabled: false
@@ -132,9 +132,9 @@ checkpoint:
   # save_dir: "outputs/checkpoints/night_sci"
   # save_dir: "outputs/checkpoints/night_zero_dce"
   # save_dir: "outputs/checkpoints/night_retinexformer"
-  save_dir: "outputs/checkpoints/night_freq_aug"
+  # save_dir: "outputs/checkpoints/night_freq_aug"
   # save_dir: "outputs/checkpoints/night_rgb_lowfreq"
-  # save_dir: "outputs/checkpoints/night_rgb_low_high_freq"
+  save_dir: "outputs/checkpoints/night_rgb_low_high_freq"
   save_best_name: "best_miou.pth"
   save_last_name: "last.pth"
   monitor: "val_miou"
@@ -158,9 +158,9 @@ wandb:
   # run_name: "night_sci_unet"
   # run_name: "night_zero_dce_unet"
   # run_name: "night_retinexformer_unet"
-  run_name: "night_freq_aug_unet"
+  # run_name: "night_freq_aug_unet"
   # run_name: "night_rgb_lowfreq_unet"
-  # run_name: "night_rgb_low_high_freq_unet"
+  run_name: "night_rgb_low_high_freq_unet"
   tags:
     - night
     # - enhancement
@@ -170,9 +170,9 @@ wandb:
     # - zero_dce
     # - retinexformer
     - frequency
-    - augmentation
-    # - low-frequency
-    # - high-frequency
+    # - augmentation
+    - low-frequency
+    - high-frequency
     - unet
     - acdc
   # notes: "U-Net baseline on raw ACDC night images without enhancement."
@@ -182,9 +182,9 @@ wandb:
   # notes: "U-Net trained and evaluated on SCI-enhanced ACDC night images. Enhancement is precomputed offline."
   # notes: "U-Net trained and evaluated on Zero-DCE-enhanced ACDC night images. Enhancement is precomputed offline."
   # notes: "U-Net trained and evaluated on Retinexformer-enhanced ACDC night images. Enhancement is precomputed offline."
-  notes: "U-Net on ACDC night images with image-level frequency augmentation."
+  # notes: "U-Net on ACDC night images with image-level frequency augmentation."
   # notes: "U-Net on ACDC night images with RGB plus low-frequency map input."
-  # notes: "U-Net on ACDC night images with RGB plus low- and high-frequency map input."
+  notes: "U-Net on ACDC night images with RGB plus low- and high-frequency map input."
   dir: "outputs"
 
 evaluate:
@@ -198,6 +198,6 @@ evaluate:
   # output_dir: "outputs/checkpoints/night_sci"
   # output_dir: "outputs/checkpoints/night_zero_dce"
   # output_dir: "outputs/checkpoints/night_retinexformer"
-  output_dir: "outputs/checkpoints/night_freq_aug"
+  # output_dir: "outputs/checkpoints/night_freq_aug"
   # output_dir: "outputs/checkpoints/night_rgb_lowfreq"
-  # output_dir: "outputs/checkpoints/night_rgb_low_high_freq"
+  output_dir: "outputs/checkpoints/night_rgb_low_high_freq"
