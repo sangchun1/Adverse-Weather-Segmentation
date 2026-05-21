@@ -22,25 +22,13 @@ from awseg.utils import ensure_dir, get_device, load_config
 
 CITYSCAPES_PALETTE = np.array(
     [
-        [128, 64, 128],   # road
-        [244, 35, 232],   # sidewalk
-        [70, 70, 70],     # building
-        [102, 102, 156],  # wall
-        [190, 153, 153],  # fence
-        [153, 153, 153],  # pole
-        [250, 170, 30],   # traffic light
-        [220, 220, 0],    # traffic sign
-        [107, 142, 35],   # vegetation
-        [152, 251, 152],  # terrain
-        [70, 130, 180],   # sky
-        [220, 20, 60],    # person
-        [255, 0, 0],      # rider
-        [0, 0, 142],      # car
-        [0, 0, 70],       # truck
-        [0, 60, 100],     # bus
-        [0, 80, 100],     # train
-        [0, 0, 230],      # motorcycle
-        [119, 11, 32],    # bicycle
+        [128, 64, 128], [244, 35, 232], [70, 70, 70],
+        [102, 102, 156], [190, 153, 153], [153, 153, 153],
+        [250, 170, 30], [220, 220, 0], [107, 142, 35],
+        [152, 251, 152], [70, 130, 180], [220, 20, 60],
+        [255, 0, 0], [0, 0, 142], [0, 0, 70],
+        [0, 60, 100], [0, 80, 100], [0, 0, 230],
+        [119, 11, 32],
     ],
     dtype=np.uint8,
 )
@@ -50,56 +38,32 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Visualize semantic segmentation predictions.")
     parser.add_argument("--config", type=str, default="configs/baseline.yaml")
     parser.add_argument("--checkpoint", type=str, required=True)
-    parser.add_argument("--split", type=str, default="val", choices=["train", "val", "test"])
-    parser.add_argument("--output-dir", type=str, default="outputs/visualizations")
-    parser.add_argument(
-        "--num-samples",
-        type=int,
-        default=20,
-        help="Number of samples to visualize when condition options are not used.",
-    )
-    parser.add_argument(
-        "--start-index",
-        type=int,
-        default=0,
-        help="Dataset index to start visualization from when not shuffling.",
-    )
-    parser.add_argument(
-        "--condition",
-        type=str,
-        default=None,
-        help=(
-            "Optional condition filter, e.g. fog, rain, snow, night. "
-            "Default: None, which means all conditions."
-        ),
-    )
-    parser.add_argument(
-        "--samples-per-condition",
-        type=int,
-        default=5,
-        help=(
-            "If --condition is given, select N samples from that condition only. "
-            "If --condition is not given, select N samples for each condition. "
-            "Default: 5."
-        ),
-    )
-    parser.add_argument(
-        "--shuffle",
-        dest="shuffle",
-        action="store_true",
-        default=True,
-        help="Randomly shuffle selected samples. Default: true.",
-    )
-    parser.add_argument(
-        "--no-shuffle",
-        dest="shuffle",
-        action="store_false",
-        help="Disable random sampling and use deterministic CSV order.",
-    )
+    parser.add_argument("--split", type=str, default="val", help="Main split. Examples: train, val, test.")
+    parser.add_argument("--output-dir", type=str, default="outputs/visualizations/baseline")
+    parser.add_argument("--num-samples", type=int, default=20)
+    parser.add_argument("--start-index", type=int, default=0)
+    parser.add_argument("--condition", type=str, default=None, help="fog, rain, snow, night, normal, or None.")
+    parser.add_argument("--samples-per-condition", type=int, default=5)
+    parser.add_argument("--normal-split", type=str, default="normal")
+    parser.add_argument("--include-normal", dest="include_normal", action="store_true", default=True)
+    parser.add_argument("--no-include-normal", dest="include_normal", action="store_false")
+    parser.add_argument("--shuffle", dest="shuffle", action="store_true", default=True)
+    parser.add_argument("--no-shuffle", dest="shuffle", action="store_false")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--alpha", type=float, default=0.55)
     parser.add_argument("--dpi", type=int, default=150)
     return parser.parse_args()
+
+
+def split_csv_exists(config: Dict[str, Any], split: str) -> bool:
+    data_config = config["data"]
+    root = Path(data_config.get("root", "."))
+    split_dir = Path(data_config.get("split_dir", "data/splits"))
+
+    if not split_dir.is_absolute():
+        split_dir = root / split_dir
+
+    return (split_dir / f"{split}.csv").exists()
 
 
 def load_model_checkpoint(
@@ -170,18 +134,9 @@ def save_visualization(
 
     if gt_mask is not None:
         gt_color = colorize_mask(gt_mask, num_classes=num_classes, ignore_index=ignore_index)
-        panels = [
-            ("Image", image),
-            ("GT", gt_color),
-            ("Prediction", pred_color),
-            ("Overlay", pred_overlay),
-        ]
+        panels = [("Image", image), ("GT", gt_color), ("Prediction", pred_color), ("Overlay", pred_overlay)]
     else:
-        panels = [
-            ("Image", image),
-            ("Prediction", pred_color),
-            ("Overlay", pred_overlay),
-        ]
+        panels = [("Image", image), ("Prediction", pred_color), ("Overlay", pred_overlay)]
 
     fig, axes = plt.subplots(1, len(panels), figsize=(4 * len(panels), 4))
 
@@ -202,71 +157,103 @@ def save_visualization(
     plt.close(fig)
 
 
-def select_indices(
-    dataset: Any,
+def build_records(config: Dict[str, Any], split: str, include_normal: bool, normal_split: str) -> list[dict[str, Any]]:
+    """Build records from main split and optional normal rows.
+
+    normal.csv contains rows for train/val/test together, so this function keeps
+    only rows where normal.csv's split column matches the requested split.
+    """
+    records: list[dict[str, Any]] = []
+
+    main_dataset = build_dataset(config, split=split)
+
+    for idx, sample in enumerate(main_dataset.samples):
+        records.append(
+            {
+                "dataset": main_dataset,
+                "index": idx,
+                "condition": str(sample.get("condition", "unknown")),
+                "csv_split": str(sample.get("split", split)),
+                "source": split,
+            }
+        )
+
+    if include_normal and split_csv_exists(config, normal_split):
+        normal_dataset = build_dataset(config, split=normal_split)
+
+        for idx, sample in enumerate(normal_dataset.samples):
+            if str(sample.get("split", "")) != split:
+                continue
+
+            records.append(
+                {
+                    "dataset": normal_dataset,
+                    "index": idx,
+                    "condition": str(sample.get("condition", "normal")),
+                    "csv_split": str(sample.get("split", split)),
+                    "source": normal_split,
+                }
+            )
+
+    elif include_normal:
+        print(f"[WARN] data/splits/{normal_split}.csv not found. Skipping normal samples.")
+
+    return records
+
+
+def select_records(
+    records: list[dict[str, Any]],
     num_samples: int,
     start_index: int,
     condition: Optional[str],
     samples_per_condition: Optional[int],
     shuffle: bool,
     seed: int,
-) -> list[int]:
-    """Select dataset indices for visualization.
-
-    Rules:
-        1. --condition + --samples-per-condition N:
-           randomly select N samples from that condition only.
-        2. --samples-per-condition N without --condition:
-           randomly select N samples for every condition.
-        3. --condition only:
-           select num_samples from that condition.
-        4. no condition option:
-           select num_samples sequentially or randomly.
-    """
+) -> list[dict[str, Any]]:
     rng = random.Random(seed)
 
-    # Case 1 and 3: one selected condition only.
     if condition is not None:
-        selected = [
-            idx
-            for idx, sample in enumerate(dataset.samples)
-            if str(sample.get("condition", "unknown")) == condition
-        ]
+        filtered = [record for record in records if record["condition"] == condition]
 
         if shuffle:
-            rng.shuffle(selected)
+            rng.shuffle(filtered)
 
         n = samples_per_condition if samples_per_condition is not None else num_samples
-        return selected[:n]
+        return filtered[:n]
 
-    # Case 2: N samples for every condition.
     if samples_per_condition is not None:
-        indices_by_condition: dict[str, list[int]] = defaultdict(list)
+        records_by_condition: dict[str, list[dict[str, Any]]] = defaultdict(list)
 
-        for idx, sample in enumerate(dataset.samples):
-            sample_condition = str(sample.get("condition", "unknown"))
-            indices_by_condition[sample_condition].append(idx)
+        for record in records:
+            records_by_condition[record["condition"]].append(record)
 
-        selected: list[int] = []
+        selected: list[dict[str, Any]] = []
+        preferred_order = ["fog", "rain", "snow", "night", "normal"]
+        remaining = [
+            name for name in sorted(records_by_condition.keys())
+            if name not in preferred_order
+        ]
 
-        for sample_condition in sorted(indices_by_condition.keys()):
-            indices = indices_by_condition[sample_condition].copy()
+        for condition_name in preferred_order + remaining:
+            if condition_name not in records_by_condition:
+                continue
+
+            condition_records = records_by_condition[condition_name].copy()
 
             if shuffle:
-                rng.shuffle(indices)
+                rng.shuffle(condition_records)
 
-            selected.extend(indices[:samples_per_condition])
+            selected.extend(condition_records[:samples_per_condition])
 
         return selected
 
-    # Case 4: default sampling.
-    selected = list(range(len(dataset)))
+    selected = records.copy()
 
     if shuffle:
         rng.shuffle(selected)
         return selected[:num_samples]
 
-    end_index = min(start_index + num_samples, len(dataset))
+    end_index = min(start_index + num_samples, len(selected))
     return selected[start_index:end_index]
 
 
@@ -280,6 +267,8 @@ def visualize_predictions(
     start_index: int,
     condition: Optional[str],
     samples_per_condition: Optional[int],
+    include_normal: bool,
+    normal_split: str,
     shuffle: bool,
     seed: int,
     alpha: float,
@@ -288,7 +277,29 @@ def visualize_predictions(
     device = get_device()
     print(f"Using device: {device}")
 
-    dataset = build_dataset(config, split=split)
+    records = build_records(
+        config=config,
+        split=split,
+        include_normal=include_normal,
+        normal_split=normal_split,
+    )
+
+    selected_records = select_records(
+        records=records,
+        num_samples=num_samples,
+        start_index=start_index,
+        condition=condition,
+        samples_per_condition=samples_per_condition,
+        shuffle=shuffle,
+        seed=seed,
+    )
+
+    if len(selected_records) == 0:
+        available_conditions = sorted({record["condition"] for record in records})
+        raise ValueError(
+            f"No samples selected. condition={condition}. "
+            f"Available conditions: {available_conditions}"
+        )
 
     model = build_model(config).to(device)
     checkpoint = load_model_checkpoint(model, checkpoint_path, device)
@@ -303,37 +314,19 @@ def visualize_predictions(
 
     output_dir = ensure_dir(output_dir)
 
-    selected_indices = select_indices(
-        dataset=dataset,
-        num_samples=num_samples,
-        start_index=start_index,
-        condition=condition,
-        samples_per_condition=samples_per_condition,
-        shuffle=shuffle,
-        seed=seed,
-    )
-
-    if len(selected_indices) == 0:
-        available_conditions = sorted(
-            {str(sample.get("condition", "unknown")) for sample in dataset.samples}
-        )
-        raise ValueError(
-            f"No samples selected. condition={condition}. "
-            f"Available conditions: {available_conditions}"
-        )
-
     condition_count: dict[str, int] = defaultdict(int)
-    for idx in selected_indices:
-        sample_condition = str(dataset.samples[idx].get("condition", "unknown"))
-        condition_count[sample_condition] += 1
+    for record in selected_records:
+        condition_count[record["condition"]] += 1
 
-    print(f"Selected {len(selected_indices)} samples")
+    print(f"Selected {len(selected_records)} samples")
     print("Selected samples by condition:")
-    for sample_condition in sorted(condition_count.keys()):
-        print(f"  {sample_condition}: {condition_count[sample_condition]}")
+    for condition_name in sorted(condition_count.keys()):
+        print(f"  {condition_name}: {condition_count[condition_name]}")
     print(f"Output directory: {output_dir}")
 
-    for dataset_index in selected_indices:
+    for save_index, record in enumerate(selected_records):
+        dataset = record["dataset"]
+        dataset_index = record["index"]
         sample = dataset[dataset_index]
 
         image_tensor = sample["image"]
@@ -347,13 +340,17 @@ def visualize_predictions(
         if "mask" in sample:
             gt_mask = sample["mask"].detach().cpu().numpy()
 
-        sample_condition = sample.get("condition", "unknown")
+        sample_condition = str(sample.get("condition", record["condition"]))
         image_path = sample.get("image_path", f"sample_{dataset_index}")
 
-        filename = f"{dataset_index:05d}_{sample_condition}_{safe_filename(image_path)}.png"
+        filename = f"{save_index:05d}_{sample_condition}_{safe_filename(image_path)}.png"
         output_path = output_dir / filename
 
-        title = f"index={dataset_index} | condition={sample_condition}"
+        title = (
+            f"source={record['source']} | "
+            f"split={record['csv_split']} | "
+            f"condition={sample_condition}"
+        )
 
         save_visualization(
             image=image,
@@ -382,6 +379,8 @@ def main() -> None:
         start_index=args.start_index,
         condition=args.condition,
         samples_per_condition=args.samples_per_condition,
+        include_normal=args.include_normal,
+        normal_split=args.normal_split,
         shuffle=args.shuffle,
         seed=args.seed,
         alpha=args.alpha,

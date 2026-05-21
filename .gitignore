@@ -229,4 +229,6 @@ outputs/wandb/
 *.pt
 *.ckpt
 
+third_party
+
 z.md

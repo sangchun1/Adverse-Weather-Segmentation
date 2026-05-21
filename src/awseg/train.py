@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 import torch
-from torch.utils.data import DataLoader, Subset
+from torch.utils.data import ConcatDataset, DataLoader, Subset
 
 from awseg.dataset import build_dataset, get_class_names
 from awseg.logger import build_logger
@@ -30,48 +30,19 @@ from awseg.utils import (
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Train baseline semantic segmentation model.")
-    parser.add_argument(
-        "--config",
-        type=str,
-        default="configs/baseline.yaml",
-        help="Path to config YAML file.",
-    )
-    parser.add_argument(
-        "--resume",
-        type=str,
-        default=None,
-        help="Optional checkpoint path to resume training.",
-    )
-    parser.add_argument(
-        "--condition",
-        type=str,
-        default=None,
-        help=(
-            "Optional weather condition filter. "
-            "Examples: fog, rain, snow, night. "
-            "If set, both train and val splits use only this condition."
-        ),
-    )
-    parser.add_argument(
-        "--result-dir",
-        type=str,
-        default="results/baseline",
-        help="Directory to save small JSON result summaries for GitHub tracking.",
-    )
-    parser.add_argument(
-        "--no-save-results",
-        dest="save_results",
-        action="store_false",
-        default=True,
-        help="Disable saving JSON result summaries.",
-    )
+    parser = argparse.ArgumentParser(description="Train semantic segmentation model.")
+    parser.add_argument("--config", type=str, default="configs/baseline.yaml")
+    parser.add_argument("--resume", type=str, default=None)
+    parser.add_argument("--condition", type=str, default=None, help="Optional filter: fog, rain, snow, night.")
+    parser.add_argument("--include-normal", dest="include_normal", action="store_true", default=False)
+    parser.add_argument("--no-include-normal", dest="include_normal", action="store_false")
+    parser.add_argument("--normal-split", type=str, default="normal")
+    parser.add_argument("--result-dir", type=str, default="outputs/results/baseline")
+    parser.add_argument("--no-save-results", dest="save_results", action="store_false", default=True)
     return parser.parse_args()
 
 
-
 def _json_safe(value: Any) -> Any:
-    """Convert values to strict JSON-safe objects."""
     if isinstance(value, dict):
         return {str(k): _json_safe(v) for k, v in value.items()}
 
@@ -93,59 +64,48 @@ def _json_safe(value: Any) -> Any:
 
 
 def save_json(data: Dict[str, Any], path: str | Path) -> None:
-    """Save dictionary as strict JSON."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
 
     with path.open("w", encoding="utf-8") as f:
-        json.dump(
-            _json_safe(data),
-            f,
-            indent=2,
-            ensure_ascii=False,
-            allow_nan=False,
-        )
-
-
-def get_condition_suffix(condition: str | None) -> str:
-    """Return filename suffix for condition-specific results.
-
-    Examples:
-        condition=None  -> ""
-        condition="fog" -> "_fog"
-    """
-    return f"_{condition}" if condition is not None else ""
-
-
-def get_condition_label(condition: str | None) -> str | None:
-    """Return condition value for JSON content.
-
-    None means all conditions are used.
-    """
-    return condition
+        json.dump(_json_safe(data), f, indent=2, ensure_ascii=False, allow_nan=False)
 
 
 def get_timestamp() -> str:
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
+def get_result_suffix(condition: str | None, include_normal: bool) -> str:
+    suffix = ""
+
+    if condition is not None:
+        suffix += f"_{condition}"
+
+    if include_normal:
+        suffix += "_include_normal"
+
+    return suffix
+
+
+def split_csv_exists(config: Dict[str, Any], split: str) -> bool:
+    data_config = config["data"]
+    root = Path(data_config.get("root", "."))
+    split_dir = Path(data_config.get("split_dir", "data/splits"))
+
+    if not split_dir.is_absolute():
+        split_dir = root / split_dir
+
+    return (split_dir / f"{split}.csv").exists()
+
+
 def get_available_conditions(dataset: Any) -> list[str]:
-    """Return sorted condition names from a dataset created by build_dataset()."""
     if not hasattr(dataset, "samples"):
         return []
 
-    return sorted(
-        {str(sample.get("condition", "unknown")) for sample in dataset.samples}
-    )
+    return sorted({str(sample.get("condition", "unknown")) for sample in dataset.samples})
 
 
 def filter_dataset_by_condition(dataset: Any, condition: str, split: str) -> Subset:
-    """Filter dataset by weather condition using dataset.samples metadata."""
-    if not hasattr(dataset, "samples"):
-        raise AttributeError(
-            "Dataset does not have `samples` metadata, so condition filtering is unavailable."
-        )
-
     indices = [
         idx
         for idx, sample in enumerate(dataset.samples)
@@ -153,18 +113,72 @@ def filter_dataset_by_condition(dataset: Any, condition: str, split: str) -> Sub
     ]
 
     if len(indices) == 0:
-        available_conditions = get_available_conditions(dataset)
         raise ValueError(
             f"No samples found for condition={condition!r} in split={split!r}. "
-            f"Available conditions: {available_conditions}"
+            f"Available conditions: {get_available_conditions(dataset)}"
         )
 
-    print(
-        f"Using condition filter for {split}: {condition} "
-        f"({len(indices)} / {len(dataset)} samples)"
-    )
-
+    print(f"Using condition filter for {split}: {condition} ({len(indices)} / {len(dataset)} samples)")
     return Subset(dataset, indices)
+
+
+def filter_dataset_by_split_column(
+    dataset: Any,
+    target_split: str,
+    require_label: bool = True,
+) -> Subset:
+    indices = []
+
+    for idx, sample in enumerate(dataset.samples):
+        if str(sample.get("split", "")) != target_split:
+            continue
+
+        if require_label and not str(sample.get("label_path", "")).strip():
+            continue
+
+        indices.append(idx)
+
+    if len(indices) == 0:
+        available_splits = sorted({str(sample.get("split", "")) for sample in dataset.samples})
+        raise ValueError(
+            f"No normal samples found for split={target_split!r}. "
+            f"Available split values in normal.csv: {available_splits}"
+        )
+
+    print(f"Using normal split filter: split={target_split} ({len(indices)} / {len(dataset)} samples)")
+    return Subset(dataset, indices)
+
+
+def build_training_dataset(
+    config: Dict[str, Any],
+    split: str,
+    condition: str | None,
+    include_normal: bool,
+    normal_split: str,
+) -> Any:
+    main_dataset = build_dataset(config, split=split)
+
+    if condition is not None:
+        main_dataset = filter_dataset_by_condition(main_dataset, condition=condition, split=split)
+
+    datasets = [main_dataset]
+
+    if include_normal:
+        if not split_csv_exists(config, normal_split):
+            raise FileNotFoundError(f"data/splits/{normal_split}.csv not found.")
+
+        normal_dataset = build_dataset(config, split=normal_split)
+        normal_dataset = filter_dataset_by_split_column(
+            normal_dataset,
+            target_split=split,
+            require_label=True,
+        )
+        datasets.append(normal_dataset)
+
+    if len(datasets) == 1:
+        return datasets[0]
+
+    return ConcatDataset(datasets)
 
 
 def build_dataloader(
@@ -172,11 +186,16 @@ def build_dataloader(
     split: str,
     shuffle: bool,
     condition: str | None = None,
+    include_normal: bool = False,
+    normal_split: str = "normal",
 ) -> DataLoader:
-    dataset = build_dataset(config, split=split)
-
-    if condition is not None:
-        dataset = filter_dataset_by_condition(dataset, condition=condition, split=split)
+    dataset = build_training_dataset(
+        config=config,
+        split=split,
+        condition=condition,
+        include_normal=include_normal,
+        normal_split=normal_split,
+    )
 
     train_config = config["train"]
     batch_size = int(train_config["batch_size"])
@@ -193,56 +212,22 @@ def build_dataloader(
 
 
 def build_optimizer(config: Dict[str, Any], model: torch.nn.Module) -> torch.optim.Optimizer:
-    """Build optimizer from config.
-
-    Supports both config styles:
-
-    1. Recommended style:
-        optimizer:
-          name: adamw
-          lr: 0.001
-          weight_decay: 0.0001
-
-    2. Older flat train style:
-        train:
-          optimizer: adamw
-          lr: 0.001
-          weight_decay: 0.0001
-    """
     train_config = config.get("train", {})
     optimizer_config = config.get("optimizer", {})
 
-    optimizer_name = str(
-        optimizer_config.get("name", train_config.get("optimizer", "adamw"))
-    ).lower()
-
+    optimizer_name = str(optimizer_config.get("name", train_config.get("optimizer", "adamw"))).lower()
     lr = float(optimizer_config.get("lr", train_config.get("lr", 1e-3)))
-    weight_decay = float(
-        optimizer_config.get("weight_decay", train_config.get("weight_decay", 0.0))
-    )
+    weight_decay = float(optimizer_config.get("weight_decay", train_config.get("weight_decay", 0.0)))
 
     if optimizer_name == "adamw":
-        return torch.optim.AdamW(
-            model.parameters(),
-            lr=lr,
-            weight_decay=weight_decay,
-        )
+        return torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
 
     if optimizer_name == "adam":
-        return torch.optim.Adam(
-            model.parameters(),
-            lr=lr,
-            weight_decay=weight_decay,
-        )
+        return torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
 
     if optimizer_name == "sgd":
         momentum = float(optimizer_config.get("momentum", train_config.get("momentum", 0.9)))
-        return torch.optim.SGD(
-            model.parameters(),
-            lr=lr,
-            momentum=momentum,
-            weight_decay=weight_decay,
-        )
+        return torch.optim.SGD(model.parameters(), lr=lr, momentum=momentum, weight_decay=weight_decay)
 
     raise ValueError(f"Unknown optimizer: {optimizer_name}")
 
@@ -251,7 +236,6 @@ def build_scheduler(
     config: Dict[str, Any],
     optimizer: torch.optim.Optimizer,
 ) -> torch.optim.lr_scheduler.LRScheduler | None:
-    """Build LR scheduler from config."""
     scheduler_config = config.get("scheduler", {})
     scheduler_name = str(scheduler_config.get("name", "cosine")).lower()
 
@@ -269,16 +253,6 @@ def build_scheduler(
 
 
 def get_early_stopping_config(config: Dict[str, Any]) -> Dict[str, Any]:
-    """Return early stopping config.
-
-    Since this project currently asks to modify only train.py, early stopping is
-    enabled by default even if configs/baseline.yaml does not contain an
-    early_stopping block.
-
-    To disable it later, add this to config:
-        early_stopping:
-          enabled: false
-    """
     early_config = config.get("early_stopping", {})
 
     return {
@@ -290,13 +264,7 @@ def get_early_stopping_config(config: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def is_improved(
-    current_value: float,
-    best_value: float,
-    mode: str,
-    min_delta: float,
-) -> bool:
-    """Check whether monitored metric improved."""
+def is_improved(current_value: float, best_value: float, mode: str, min_delta: float) -> bool:
     if mode == "max":
         return current_value > best_value + min_delta
 
@@ -323,14 +291,6 @@ def load_resume_checkpoint(
     scheduler: torch.optim.lr_scheduler.LRScheduler | None,
     device: torch.device,
 ) -> tuple[int, float, int, int]:
-    """Load checkpoint for resuming training.
-
-    Returns:
-        start_epoch: Epoch to start from.
-        best_miou: Best validation mIoU so far.
-        early_bad_epochs: Early stopping counter.
-        global_step: Global iteration step for wandb logging.
-    """
     checkpoint = torch.load(resume_path, map_location=device)
 
     model.load_state_dict(checkpoint["model_state_dict"])
@@ -411,12 +371,7 @@ def train_one_epoch(
         global_step += 1
 
     result = metric.compute()
-    train_metrics = {
-        "loss": float(loss_meter.avg),
-        "miou": float(result["miou"]),
-    }
-
-    return train_metrics, global_step
+    return {"loss": float(loss_meter.avg), "miou": float(result["miou"])}, global_step
 
 
 @torch.no_grad()
@@ -472,17 +427,20 @@ def main() -> None:
         split="train",
         shuffle=True,
         condition=args.condition,
+        include_normal=args.include_normal,
+        normal_split=args.normal_split,
     )
     val_loader = build_dataloader(
         config,
         split="val",
         shuffle=False,
         condition=args.condition,
+        include_normal=args.include_normal,
+        normal_split=args.normal_split,
     )
 
     model = build_model(config).to(device)
     criterion = build_loss(config).to(device)
-
     optimizer = build_optimizer(config, model)
     scheduler = build_scheduler(config, optimizer)
 
@@ -497,6 +455,7 @@ def main() -> None:
     print(f"Model: {config['model']['name']}")
     if args.condition is not None:
         print(f"Condition filter: {args.condition}")
+    print(f"Include normal data: {args.include_normal}")
     print(f"Train samples: {len(train_loader.dataset)}")
     print(f"Val samples: {len(val_loader.dataset)}")
     print(f"Trainable parameters: {count_parameters(model):,}")
@@ -547,9 +506,9 @@ def main() -> None:
     stopped_epoch = None
 
     result_dir = Path(args.result_dir)
-    condition_label = get_condition_label(args.condition)
-    train_summary_path = result_dir / "train.json"
-    train_history_path = result_dir / "train_history.json"
+    result_suffix = get_result_suffix(args.condition, args.include_normal)
+    train_summary_path = result_dir / f"train{result_suffix}.json"
+    train_history_path = result_dir / f"train_history{result_suffix}.json"
 
     try:
         for epoch in range(start_epoch, epochs + 1):
@@ -592,28 +551,13 @@ def main() -> None:
                 )
             )
 
-            # Use global_step for all wandb logs.
-            # wandb step must be monotonically increasing, so do not use epoch
-            # as step after iteration-level logs already used global_step.
             logger.log_metrics(train_metrics, prefix="train_epoch", step=global_step)
             logger.log_metrics(
-                {
-                    "loss": val_metrics["loss"],
-                    "miou": current_miou,
-                },
+                {"loss": val_metrics["loss"], "miou": current_miou},
                 prefix="val",
                 step=global_step,
             )
-            logger.log(
-                {
-                    "lr/epoch": float(current_lr),
-                    "epoch": int(epoch),
-                    "early_stopping/bad_epochs": int(early_bad_epochs),
-                    "early_stopping/patience": int(early_patience),
-                    "best/miou": float(best_miou) if best_miou not in {float("-inf"), float("inf")} else 0.0,
-                },
-                step=global_step,
-            )
+            logger.log({"lr/epoch": float(current_lr), "epoch": int(epoch)}, step=global_step)
             logger.log_class_iou(
                 val_metrics["class_iou"],
                 class_names=class_names,
@@ -649,6 +593,7 @@ def main() -> None:
                 "early_bad_epochs": early_bad_epochs,
                 "early_stopping": early_config,
                 "condition": args.condition,
+                "include_normal": args.include_normal,
                 "config": config,
             }
 
@@ -681,14 +626,6 @@ def main() -> None:
                     f"Early stopping triggered at epoch {epoch}. "
                     f"Best validation mIoU: {best_miou:.4f}"
                 )
-                logger.log(
-                    {
-                        "early_stopping/triggered": 1,
-                        "early_stopping/stopped_epoch": int(epoch),
-                        "best/miou": float(best_miou),
-                    },
-                    step=global_step,
-                )
                 break
 
         print(f"Training finished. Best validation mIoU: {best_miou:.4f}")
@@ -698,7 +635,8 @@ def main() -> None:
                 "task": "train",
                 "created_at": get_timestamp(),
                 "config_path": str(args.config),
-                "condition": condition_label,
+                "condition": args.condition,
+                "include_normal": args.include_normal,
                 "model": config.get("model", {}),
                 "optimizer": config.get("optimizer", {}),
                 "scheduler": config.get("scheduler", {}),
@@ -754,8 +692,8 @@ def main() -> None:
         print("Best checkpoint:", save_dir / "best_miou.pth")
 
         if (save_dir / "best_miou.pth").exists():
-            print("\nFinal best checkpoint can be evaluated with:")
             condition_arg = f" --condition {args.condition}" if args.condition is not None else ""
+            print("\nFinal best checkpoint can be evaluated with:")
             print(
                 f"python -m awseg.evaluate --config {args.config} "
                 f"--checkpoint {save_dir / 'best_miou.pth'} --split val{condition_arg}"
