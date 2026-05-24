@@ -107,4 +107,4 @@ evaluate:
   batch_size: 8
   num_workers: 4
   save_predictions: false
-  output_dir: "outputs/checkpoints/baseline"
+  output_dir: "outputs/checkpoints/unet_dice"
