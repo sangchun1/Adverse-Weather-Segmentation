@@ -1,0 +1,113 @@
+# 딥러닝 설정
+# Model: DeepLabV3+ Baseline
+
+seed: 42
+
+data:
+  root: "."
+  split_dir: "data/splits"
+  train_csv: "train.csv"
+  val_csv: "val.csv"
+  test_csv: "test.csv"
+
+  input_width: 1024
+  input_height: 512
+  num_classes: 19
+  ignore_index: 255
+
+  # ImageNet normalization
+  mean: [0.485, 0.456, 0.406]
+  std: [0.229, 0.224, 0.225]
+
+  class_names:
+    - road
+    - sidewalk
+    - building
+    - wall
+    - fence
+    - pole
+    - traffic light
+    - traffic sign
+    - vegetation
+    - terrain
+    - sky
+    - person
+    - rider
+    - car
+    - truck
+    - bus
+    - train
+    - motorcycle
+    - bicycle
+
+model:
+  name: "deeplabv3plus"          # 모델 이름을 deeplabv3plus로 변경
+  backbone: "resnet50"           # DeepLabV3+의 뼈대가 되는 백본 네트워크 (일반적으로 ResNet50/101 사용)
+  pretrained: true               # ImageNet으로 선행 학습된 가중치를 사용하여 초기 성능 향상
+  in_channels: 3
+  num_classes: 19
+  output_stride: 16              # Atrous Convolution의 확장 비율을 결정하는 핵심 하이퍼파라미터
+
+loss:
+  name: "cross_entropy"
+
+optimizer:
+  name: "adamw"
+  lr: 0.0005                     # DeepLabV3+는 사전학습 모델을 쓰므로 초기 학습률을 U-Net(0.001)보다 조금 낮춘 0.0005로 세팅하는 것이 안정적이야
+  weight_decay: 0.0001
+
+scheduler:
+  name: "cosine_annealing"
+  T_max: 50
+  eta_min: 0.000001
+
+train:
+  epochs: 50
+  batch_size: 8                  # 만약 1024x512 해상도에서 VRAM 메모리가 터진다면(OOM), 이 값을 2나 4로 줄여서 실행해 줘!
+  num_workers: 4
+  pin_memory: true
+  amp: true                      # 16비트 연산을 섞어 쓰는 AMP 모드를 켜서 DeepLabV3+의 무거운 연산량과 메모리 부담을 완화해 줌
+  grad_clip_norm: null
+  log_interval: 20
+  val_interval: 1
+
+augmentation:
+  enabled: false
+  name: "none"
+
+enhancement:
+  enabled: false
+  name: "none"
+
+checkpoint:
+  save_dir: "outputs/checkpoints/deeplabv3plus"   # 저장 폴더 구분
+  save_best_name: "best_miou.pth"
+  save_last_name: "last.pth"
+  monitor: "val_miou"
+  mode: "max"
+
+early_stopping:
+  enabled: true
+  monitor: "val_miou"
+  mode: "max"
+  patience: 10
+  min_delta: 0.0001
+
+wandb:
+  enabled: true
+  project: "adverse-weather-segmentation"
+  entity: null
+  run_name: "deeplabv3plus_baseline"              # W&B 대시보드에 기록될 실험 이름 변경
+  tags:
+    - baseline
+    - deeplabv3plus
+    - resnet50
+    - acdc
+  notes: "DeepLabV3+ with ResNet50 backbone baseline with 1024x512 input and CrossEntropyLoss."
+  dir: "outputs"
+
+evaluate:
+  batch_size: 8
+  num_workers: 4
+  save_predictions: false
+  output_dir: "outputs/checkpoints/deeplabv3plus"
