@@ -78,7 +78,7 @@ enhancement:
   name: "none"
 
 checkpoint:
-  save_dir: "outputs/checkpoints/baseline"
+  save_dir: "outputs/checkpoints/unet+dice"
   save_best_name: "best_miou.pth"
   save_last_name: "last.pth"
   monitor: "val_miou"
