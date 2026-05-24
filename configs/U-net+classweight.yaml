@@ -115,7 +115,7 @@ wandb:
   enabled: true
   project: "adverse-weather-segmentation"
   entity: null
-  run_name: "unet_baseline"
+  run_name: "unet_classweight"
   tags:
     - baseline
     - unet
