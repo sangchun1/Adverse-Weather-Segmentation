@@ -47,7 +47,7 @@ model:
   base_channels: 64
 
 loss:
-  name: "cross_entropy" # 또는 "dice" 혹은 "focal" 다 섞어 쓸 수 있어!
+  name: "focal" 
   weights:
     - 0.5   # 0: road 
     - 1.0   # 1: sidewalk
