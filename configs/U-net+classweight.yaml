@@ -47,7 +47,7 @@ model:
   base_channels: 64
 
 loss:
-  name: "focal" 
+  name: "cross_entropy" 
   weights:
     - 0.5   # 0: road 
     - 1.0   # 1: sidewalk
