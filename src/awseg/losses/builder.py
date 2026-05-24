@@ -6,8 +6,7 @@ import torch.nn as nn
 import segmentation_models_pytorch as smp
 
 
-# 🚀 [치트키] 람다(lambda) 대신 진짜 파이토치 nn.Module 객체 레이어를 정의해 버림!
-# 이렇게 해야 뒷단에서 .to(device)를 만나도 에러가 나지 않고 GPU로 완벽하게 넘어갑니다.
+
 class UniversalHybridLoss(nn.Module):
     def __init__(self, loss_name: str, ignore_index: int, class_weights: torch.Tensor | None = None):
         super().__init__()
@@ -58,11 +57,11 @@ def build_loss(config: Dict[str, Any]) -> nn.Module:
     # YAML 파일에서 클래스 가중치(weights) 설정 가져와 GPU 장치로 보내기
     raw_weights = loss_config.get("weights", None)
     if raw_weights is not None:
-        assert len(raw_weights) == num_classes, f"Weights 리스트의 길이는 클래스 개수({num_classes})와 같아야 합니다!"
+        assert len(raw_weights) == num_classes, f"Weights 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         class_weights = torch.tensor(raw_weights, dtype=torch.float32).to(device)
     else:
         class_weights = None
 
-    # 만능 복합 객체를 던져주므로 무조건 에러를 방지하고 모든 설정을 소화합니다.
+    
     return UniversalHybridLoss(loss_name, ignore_index, class_weights)
