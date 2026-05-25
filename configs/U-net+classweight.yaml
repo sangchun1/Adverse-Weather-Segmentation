@@ -1,5 +1,4 @@
-# 베이스라인 설정
-# Model: U-Net from scratch
+
 
 seed: 42
 
@@ -49,25 +48,25 @@ model:
 loss:
   name: "cross_entropy" 
   weights:
-    - 0.5   # 0: road 
-    - 1.0   # 1: sidewalk
-    - 1.0   # 2: building
-    - 1.0   # 3: wall
-    - 1.0   # 4: fence
-    - 1.0   # 5: pole
-    - 1.0   # 6: traffic light
-    - 1.0   # 7: traffic sign
-    - 0.5   # 8: vegetation 
-    - 1.0   # 9: terrain
-    - 0.5   # 10: sky 
-    - 5.0   # 11: person 
-    - 5.0   # 12: rider 
-    - 1.0   # 13: car
-    - 2.0   # 14: truck
-    - 2.0   # 15: bus
-    - 2.0   # 16: train
-    - 10.0  # 17: motorcycle 
-    - 5.0   # 18: bicycle 
+    - 0.0409  # 0: road 
+    - 0.2653  # 1: sidewalk
+    - 0.0854  # 2: building
+    - 0.4925  # 3: wall
+    - 0.3127  # 4: fence
+    - 1.0000  # 5: pole
+    - 7.0630  # 6: traffic light
+    - 2.1880  # 7: traffic sign
+    - 0.0384  # 8: vegetation 
+    - 0.2478  # 9: terrain
+    - 0.0168  # 10: sky 
+    - 10.0000 # 11: person 
+    - 10.0000 # 12: rider 
+    - 0.4431  # 13: car
+    - 1.0806  # 14: truck
+    - 3.2782  # 15: bus
+    - 2.9486  # 16: train
+    - 10.0000 # 17: motorcycle 
+    - 10.0000 # 18: bicycle
 
 optimizer:
   name: "adamw"
@@ -98,7 +97,7 @@ enhancement:
   name: "none"
 
 checkpoint:
-  save_dir: "outputs/checkpoints/unet+classweight"
+  save_dir: "outputs/checkpoints/unet_classweight"
   save_best_name: "best_miou.pth"
   save_last_name: "last.pth"
   monitor: "val_miou"
@@ -114,7 +113,7 @@ early_stopping:
 wandb:
   enabled: true
   project: "adverse-weather-segmentation"
-  entity: null
+  entity: 
   run_name: "unet_classweight"
   tags:
     - baseline
