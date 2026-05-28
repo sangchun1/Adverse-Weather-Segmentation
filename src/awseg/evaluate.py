@@ -112,6 +112,7 @@ def filter_dataset_by_split_column(
     dataset: Any,
     target_split: str,
     require_label: bool = True,
+    source_condition = "snow", # snow 같은장소 맑은 날만 평가
 ) -> Subset:
     indices = []
 
@@ -121,6 +122,15 @@ def filter_dataset_by_split_column(
 
         if require_label and not str(sample.get("label_path", "")).strip():
             continue
+
+        # normal 경로에서도 해당 날씨 폴더에 속한 것만 남김
+        if source_condition is not None:
+            image_path = str(sample.get("image_path", "")).replace("\\", "/")
+            label_path = str(sample.get("label_path", "")).replace("\\", "/")
+            token = f"/{source_condition}/"
+
+            if token not in image_path and token not in label_path:
+                continue
 
         indices.append(idx)
 
