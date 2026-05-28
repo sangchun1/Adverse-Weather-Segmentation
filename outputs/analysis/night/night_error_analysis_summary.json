@@ -1,0 +1,381 @@
+{
+  "config": "configs/night.yaml",
+  "checkpoint": "outputs/checkpoints/night/best_miou.pth",
+  "split": "val",
+  "condition": "night",
+  "num_images": 106,
+  "night_miou_from_predictions": 0.316525355624788,
+  "overall_pixel_error_rate": 0.18351050829003585,
+  "boundary_radius": 2,
+  "boundary_error_rate": 0.5161270227612046,
+  "interior_error_rate": 0.1634923249411491,
+  "dynamic_classes": [
+    "person",
+    "rider",
+    "car",
+    "truck",
+    "bus",
+    "train",
+    "motorcycle",
+    "bicycle"
+  ],
+  "background_classes": [
+    "road",
+    "sidewalk",
+    "building",
+    "wall",
+    "fence",
+    "pole",
+    "traffic_light",
+    "traffic_sign",
+    "vegetation",
+    "terrain",
+    "sky"
+  ],
+  "dynamic_to_background_error_rate": 0.3631473911140084,
+  "top_iou_drops": [
+    {
+      "class_id": 15,
+      "class_name": "bus",
+      "overall_val_iou": 0.3765,
+      "night_iou": 0.0,
+      "iou_drop_overall_minus_night": 0.3765,
+      "night_minus_overall": -0.3765
+    },
+    {
+      "class_id": 13,
+      "class_name": "car",
+      "overall_val_iou": 0.7005,
+      "night_iou": 0.35944560170173645,
+      "iou_drop_overall_minus_night": 0.34105439829826356,
+      "night_minus_overall": -0.34105439829826356
+    },
+    {
+      "class_id": 6,
+      "class_name": "traffic_light",
+      "overall_val_iou": 0.5301,
+      "night_iou": 0.2030361145734787,
+      "iou_drop_overall_minus_night": 0.3270638854265213,
+      "night_minus_overall": -0.3270638854265213
+    },
+    {
+      "class_id": 9,
+      "class_name": "terrain",
+      "overall_val_iou": 0.4186,
+      "night_iou": 0.09912228584289551,
+      "iou_drop_overall_minus_night": 0.3194777141571045,
+      "night_minus_overall": -0.3194777141571045
+    },
+    {
+      "class_id": 7,
+      "class_name": "traffic_sign",
+      "overall_val_iou": 0.3622,
+      "night_iou": 0.15718764066696167,
+      "iou_drop_overall_minus_night": 0.20501235933303835,
+      "night_minus_overall": -0.20501235933303835
+    },
+    {
+      "class_id": 14,
+      "class_name": "truck",
+      "overall_val_iou": 0.2017,
+      "night_iou": 0.0,
+      "iou_drop_overall_minus_night": 0.2017,
+      "night_minus_overall": -0.2017
+    },
+    {
+      "class_id": 8,
+      "class_name": "vegetation",
+      "overall_val_iou": 0.8196,
+      "night_iou": 0.6280848979949951,
+      "iou_drop_overall_minus_night": 0.19151510200500488,
+      "night_minus_overall": -0.19151510200500488
+    },
+    {
+      "class_id": 11,
+      "class_name": "person",
+      "overall_val_iou": 0.2466,
+      "night_iou": 0.07069866359233856,
+      "iou_drop_overall_minus_night": 0.17590133640766145,
+      "night_minus_overall": -0.17590133640766145
+    },
+    {
+      "class_id": 10,
+      "class_name": "sky",
+      "overall_val_iou": 0.9389,
+      "night_iou": 0.7661557197570801,
+      "iou_drop_overall_minus_night": 0.17274428024291988,
+      "night_minus_overall": -0.17274428024291988
+    },
+    {
+      "class_id": 18,
+      "class_name": "bicycle",
+      "overall_val_iou": 0.2118,
+      "night_iou": 0.05765427276492119,
+      "iou_drop_overall_minus_night": 0.1541457272350788,
+      "night_minus_overall": -0.1541457272350788
+    }
+  ],
+  "top_confusion_pairs": [
+    {
+      "gt_class_id": 8,
+      "gt_class_name": "vegetation",
+      "pred_class_id": 10,
+      "pred_class_name": "sky",
+      "pixels": 906079,
+      "rate_within_gt_class": 0.09408006595413633
+    },
+    {
+      "gt_class_id": 10,
+      "gt_class_name": "sky",
+      "pred_class_id": 8,
+      "pred_class_name": "vegetation",
+      "pixels": 868423,
+      "rate_within_gt_class": 0.09334223307101679
+    },
+    {
+      "gt_class_id": 1,
+      "gt_class_name": "sidewalk",
+      "pred_class_id": 0,
+      "pred_class_name": "road",
+      "pixels": 727913,
+      "rate_within_gt_class": 0.16516622745653997
+    },
+    {
+      "gt_class_id": 2,
+      "gt_class_name": "building",
+      "pred_class_id": 8,
+      "pred_class_name": "vegetation",
+      "pixels": 711329,
+      "rate_within_gt_class": 0.0738651880801213
+    },
+    {
+      "gt_class_id": 8,
+      "gt_class_name": "vegetation",
+      "pred_class_id": 2,
+      "pred_class_name": "building",
+      "pixels": 707154,
+      "rate_within_gt_class": 0.0734252697168032
+    },
+    {
+      "gt_class_id": 0,
+      "gt_class_name": "road",
+      "pred_class_id": 1,
+      "pred_class_name": "sidewalk",
+      "pixels": 477744,
+      "rate_within_gt_class": 0.03525594476934685
+    },
+    {
+      "gt_class_id": 2,
+      "gt_class_name": "building",
+      "pred_class_id": 10,
+      "pred_class_name": "sky",
+      "pixels": 317621,
+      "rate_within_gt_class": 0.03298211503143582
+    },
+    {
+      "gt_class_id": 4,
+      "gt_class_name": "fence",
+      "pred_class_id": 2,
+      "pred_class_name": "building",
+      "pixels": 314954,
+      "rate_within_gt_class": 0.24315909018968407
+    },
+    {
+      "gt_class_id": 10,
+      "gt_class_name": "sky",
+      "pred_class_id": 2,
+      "pred_class_name": "building",
+      "pixels": 302786,
+      "rate_within_gt_class": 0.03254487891573679
+    },
+    {
+      "gt_class_id": 4,
+      "gt_class_name": "fence",
+      "pred_class_id": 8,
+      "pred_class_name": "vegetation",
+      "pixels": 280932,
+      "rate_within_gt_class": 0.21689252883014132
+    }
+  ],
+  "class_error_summary_top": [
+    {
+      "class_id": 12,
+      "class_name": "rider",
+      "gt_pixels": 5480,
+      "pred_pixels": 979,
+      "true_positive": 0,
+      "false_positive": 979,
+      "false_negative": 5480,
+      "iou": 0.0,
+      "recall": 0.0,
+      "precision": 0.0,
+      "class_error_rate_gt_missed": 1.0,
+      "boundary_pixels": 3953,
+      "boundary_error_pixels": 3953,
+      "boundary_error_rate": 1.0,
+      "dynamic_to_background_rate": 0.46295620437956203
+    },
+    {
+      "class_id": 14,
+      "class_name": "truck",
+      "gt_pixels": 7947,
+      "pred_pixels": 0,
+      "true_positive": 0,
+      "false_positive": 0,
+      "false_negative": 7947,
+      "iou": 0.0,
+      "recall": 0.0,
+      "precision": NaN,
+      "class_error_rate_gt_missed": 1.0,
+      "boundary_pixels": 2458,
+      "boundary_error_pixels": 2458,
+      "boundary_error_rate": 1.0,
+      "dynamic_to_background_rate": 0.4126085315213288
+    },
+    {
+      "class_id": 17,
+      "class_name": "motorcycle",
+      "gt_pixels": 20816,
+      "pred_pixels": 0,
+      "true_positive": 0,
+      "false_positive": 0,
+      "false_negative": 20816,
+      "iou": 0.0,
+      "recall": 0.0,
+      "precision": NaN,
+      "class_error_rate_gt_missed": 1.0,
+      "boundary_pixels": 7340,
+      "boundary_error_pixels": 7340,
+      "boundary_error_rate": 1.0,
+      "dynamic_to_background_rate": 0.5095599538816296
+    },
+    {
+      "class_id": 18,
+      "class_name": "bicycle",
+      "gt_pixels": 116135,
+      "pred_pixels": 21836,
+      "true_positive": 7521,
+      "false_positive": 14315,
+      "false_negative": 108614,
+      "iou": 0.057654273668072055,
+      "recall": 0.06476083867912344,
+      "precision": 0.3444312145081517,
+      "class_error_rate_gt_missed": 0.9352391613208766,
+      "boundary_pixels": 30636,
+      "boundary_error_pixels": 29898,
+      "boundary_error_rate": 0.9759106933019976,
+      "dynamic_to_background_rate": 0.7284367331123262
+    },
+    {
+      "class_id": 11,
+      "class_name": "person",
+      "gt_pixels": 88846,
+      "pred_pixels": 44956,
+      "true_positive": 8835,
+      "false_positive": 36121,
+      "false_negative": 80011,
+      "iou": 0.07069866444741411,
+      "recall": 0.09944173063503141,
+      "precision": 0.19652549159177862,
+      "class_error_rate_gt_missed": 0.9005582693649686,
+      "boundary_pixels": 36936,
+      "boundary_error_pixels": 33583,
+      "boundary_error_rate": 0.9092213558587827,
+      "dynamic_to_background_rate": 0.6900254372734844
+    },
+    {
+      "class_id": 9,
+      "class_name": "terrain",
+      "gt_pixels": 555605,
+      "pred_pixels": 308703,
+      "true_positive": 77946,
+      "false_positive": 230757,
+      "false_negative": 477659,
+      "iou": 0.09912228719088664,
+      "recall": 0.14029031416203958,
+      "precision": 0.25249511666553287,
+      "class_error_rate_gt_missed": 0.8597096858379604,
+      "boundary_pixels": 129084,
+      "boundary_error_pixels": 113424,
+      "boundary_error_rate": 0.8786836478572092,
+      "dynamic_to_background_rate": NaN
+    },
+    {
+      "class_id": 7,
+      "class_name": "traffic_sign",
+      "gt_pixels": 195691,
+      "pred_pixels": 100696,
+      "true_positive": 40260,
+      "false_positive": 60436,
+      "false_negative": 155431,
+      "iou": 0.15718764519164322,
+      "recall": 0.20573250686030528,
+      "precision": 0.3998172717883531,
+      "class_error_rate_gt_missed": 0.7942674931396947,
+      "boundary_pixels": 67804,
+      "boundary_error_pixels": 59869,
+      "boundary_error_rate": 0.8829715061058344,
+      "dynamic_to_background_rate": NaN
+    },
+    {
+      "class_id": 6,
+      "class_name": "traffic_light",
+      "gt_pixels": 43713,
+      "pred_pixels": 25233,
+      "true_positive": 11636,
+      "false_positive": 13597,
+      "false_negative": 32077,
+      "iou": 0.20303611935089863,
+      "recall": 0.26619083567817353,
+      "precision": 0.46114215511433443,
+      "class_error_rate_gt_missed": 0.7338091643218264,
+      "boundary_pixels": 14204,
+      "boundary_error_pixels": 11846,
+      "boundary_error_rate": 0.8339904252323289,
+      "dynamic_to_background_rate": NaN
+    },
+    {
+      "class_id": 4,
+      "class_name": "fence",
+      "gt_pixels": 1295259,
+      "pred_pixels": 824431,
+      "true_positive": 384727,
+      "false_positive": 439704,
+      "false_negative": 910532,
+      "iou": 0.22174939753758438,
+      "recall": 0.2970270810702724,
+      "precision": 0.4666576099152021,
+      "class_error_rate_gt_missed": 0.7029729189297276,
+      "boundary_pixels": 175636,
+      "boundary_error_pixels": 133235,
+      "boundary_error_rate": 0.7585859391013232,
+      "dynamic_to_background_rate": NaN
+    },
+    {
+      "class_id": 3,
+      "class_name": "wall",
+      "gt_pixels": 1016986,
+      "pred_pixels": 1006997,
+      "true_positive": 438244,
+      "false_positive": 568753,
+      "false_negative": 578742,
+      "iou": 0.2763657827675298,
+      "recall": 0.43092431950882315,
+      "precision": 0.4351989132043094,
+      "class_error_rate_gt_missed": 0.5690756804911768,
+      "boundary_pixels": 163461,
+      "boundary_error_pixels": 110994,
+      "boundary_error_rate": 0.6790243544331676,
+      "dynamic_to_background_rate": NaN
+    }
+  ],
+  "outputs": {
+    "class_iou_drop_csv": "outputs/analysis/night/class_iou_drop.csv",
+    "image_error_summary_csv": "outputs/analysis/night/image_error_summary_night.csv",
+    "class_error_summary_csv": "outputs/analysis/night/class_error_summary_night.csv",
+    "confusion_matrix_csv": "outputs/analysis/night/confusion_matrix_night.csv",
+    "top_confusion_pairs_csv": "outputs/analysis/night/top_confusion_pairs_night.csv",
+    "plots_dir": "outputs/analysis/night/plots",
+    "examples_dir": "outputs/analysis/night/examples"
+  }
+}

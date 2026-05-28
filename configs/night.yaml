@@ -42,9 +42,9 @@ data:
 
 model:
   name: "unet"
-  # in_channels: 3
+  in_channels: 3
   # in_channels: 4
-  in_channels: 5
+  # in_channels: 5
   num_classes: 19
   base_channels: 64
 
@@ -72,8 +72,8 @@ train:
   val_interval: 1
 
 augmentation:
-  # enabled: false
-  # name: "none"
+  enabled: false
+  name: "none"
 
   # # Frequency augmentation
   # enabled: true
@@ -90,12 +90,12 @@ augmentation:
   # mean: 0.5
   # std: 0.5
 
-  # low + high-frequency map
-  enabled: true
-  name: "frequency_map_low_high"
-  low_radius_ratio: 0.08
-  mean: 0.5
-  std: 0.5
+  # # low + high-frequency map
+  # enabled: true
+  # name: "frequency_map_low_high"
+  # low_radius_ratio: 0.08
+  # mean: 0.5
+  # std: 0.5
 
 enhancement:
   enabled: false
@@ -125,7 +125,7 @@ enhancement:
   # color_space: "lab"
 
 checkpoint:
-  # save_dir: "outputs/checkpoints/night"
+  # save_dir: "outputs/checkpo/ints/night"
   # save_dir: "outputs/checkpoints/night_gamma"
   # save_dir: "outputs/checkpoints/night_clahe"
   # save_dir: "outputs/checkpoints/night_gamma_clahe"
@@ -134,7 +134,7 @@ checkpoint:
   # save_dir: "outputs/checkpoints/night_retinexformer"
   # save_dir: "outputs/checkpoints/night_freq_aug"
   # save_dir: "outputs/checkpoints/night_rgb_lowfreq"
-  save_dir: "outputs/checkpoints/night_rgb_low_high_freq"
+  # save_dir: "outputs/checkpoints/night_rgb_low_high_freq"
   save_best_name: "best_miou.pth"
   save_last_name: "last.pth"
   monitor: "val_miou"
@@ -151,7 +151,7 @@ wandb:
   enabled: true
   project: "adverse-weather-segmentation"
   entity: null
-  # run_name: "night_unet"
+  run_name: "night_unet"
   # run_name: "night_gamma_unet"
   # run_name: "night_clahe_unet"
   # run_name: "night_gamma_clahe_unet"
@@ -160,7 +160,7 @@ wandb:
   # run_name: "night_retinexformer_unet"
   # run_name: "night_freq_aug_unet"
   # run_name: "night_rgb_lowfreq_unet"
-  run_name: "night_rgb_low_high_freq_unet"
+  # run_name: "night_rgb_low_high_freq_unet"
   tags:
     - night
     # - enhancement
@@ -169,13 +169,13 @@ wandb:
     # - sci
     # - zero_dce
     # - retinexformer
-    - frequency
+    # - frequency
     # - augmentation
-    - low-frequency
-    - high-frequency
+    # - low-frequency
+    # - high-frequency
     - unet
     - acdc
-  # notes: "U-Net baseline on raw ACDC night images without enhancement."
+  notes: "U-Net baseline on raw ACDC night images without enhancement."
   # notes: "U-Net on ACDC night images with on-the-fly gamma correction, gamma=0.6."
   # notes: "U-Net on ACDC night images with on-the-fly CLAHE on LAB luminance channel."
   # notes: "U-Net on ACDC night images with on-the-fly gamma correction and CLAHE on LAB luminance channel."
@@ -184,14 +184,14 @@ wandb:
   # notes: "U-Net trained and evaluated on Retinexformer-enhanced ACDC night images. Enhancement is precomputed offline."
   # notes: "U-Net on ACDC night images with image-level frequency augmentation."
   # notes: "U-Net on ACDC night images with RGB plus low-frequency map input."
-  notes: "U-Net on ACDC night images with RGB plus low- and high-frequency map input."
+  # notes: "U-Net on ACDC night images with RGB plus low- and high-frequency map input."
   dir: "outputs"
 
 evaluate:
   batch_size: 8
   num_workers: 4
   save_predictions: false
-  # output_dir: "outputs/checkpoints/night"
+  output_dir: "outputs/checkpoints/night"
   # output_dir: "outputs/checkpoints/night_gamma"
   # output_dir: "outputs/checkpoints/night_clahe"
   # output_dir: "outputs/checkpoints/night_gamma_clahe"
@@ -200,4 +200,4 @@ evaluate:
   # output_dir: "outputs/checkpoints/night_retinexformer"
   # output_dir: "outputs/checkpoints/night_freq_aug"
   # output_dir: "outputs/checkpoints/night_rgb_lowfreq"
-  output_dir: "outputs/checkpoints/night_rgb_low_high_freq"
+  # output_dir: "outputs/checkpoints/night_rgb_low_high_freq"
