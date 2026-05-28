@@ -56,11 +56,11 @@ optimizer:
 
 scheduler:
   name: "cosine_annealing"
-  T_max: 50
+  T_max: 100
   eta_min: 0.000001
 
 train:
-  epochs: 50
+  epochs: 100
   batch_size: 16
   num_workers: 4
   pin_memory: true
