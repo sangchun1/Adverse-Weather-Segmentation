@@ -62,7 +62,6 @@ class ACDCSegmentationDataset(Dataset):
         data_config = config["data"]
         self.root = Path(data_config.get("root", "."))
         self.split_dir = self._resolve_dir(data_config.get("split_dir", "data/splits"))
-
         self.csv_path = self.split_dir / f"{split}.csv"
 
         if not self.csv_path.exists():
@@ -81,24 +80,20 @@ class ACDCSegmentationDataset(Dataset):
     def _resolve_dir(self, path: str | Path) -> Path:
         """Resolve a directory path.
 
-        If path is absolute, return it as-is.
-        Otherwise, interpret it relative to data.root.
+        If path is absolute, return it as-is. Otherwise, interpret it relative to data.root.
         """
         path = Path(path)
-
         if path.is_absolute():
             return path
-
         return self.root / path
 
     def _resolve_file(self, path: str | Path) -> Path:
         """Resolve a file path.
 
-        The split CSV may contain either absolute paths or paths relative to
-        the project root/data root. This method supports both cases.
+        The split CSV may contain either absolute paths or paths relative to the project
+        root/data root. This method supports both cases.
         """
         path = Path(path)
-
         if path.is_absolute():
             return path
 
@@ -113,9 +108,7 @@ class ACDCSegmentationDataset(Dataset):
     def _is_missing_path(path: Any) -> bool:
         if path is None:
             return True
-
         path_str = str(path).strip()
-
         return path_str == "" or path_str.lower() in {"none", "nan", "null"}
 
     def _load_csv(self, csv_path: Path) -> list[Dict[str, str]]:
@@ -123,7 +116,6 @@ class ACDCSegmentationDataset(Dataset):
 
         with csv_path.open("r", encoding="utf-8", newline="") as f:
             reader = csv.DictReader(f)
-
             required_columns = {"image_path"}
             missing_columns = required_columns - set(reader.fieldnames or [])
 
@@ -160,6 +152,7 @@ class ACDCSegmentationDataset(Dataset):
 
         image_path = self._resolve_file(sample["image_path"])
         label_path_raw = sample.get("label_path", "")
+        condition = sample.get("condition", "unknown")
 
         if not image_path.exists():
             raise FileNotFoundError(f"Image file not found: {image_path}")
@@ -171,7 +164,6 @@ class ACDCSegmentationDataset(Dataset):
 
         if has_label:
             label_path = self._resolve_file(label_path_raw)
-
             if not label_path.exists():
                 raise FileNotFoundError(f"Label file not found: {label_path}")
 
@@ -184,11 +176,17 @@ class ACDCSegmentationDataset(Dataset):
                 f"Label path is missing for {self.split} sample: {image_path}"
             )
 
-        image, mask = self.transform(image, mask)
+        # Pass condition metadata to transforms so enhancement can be applied
+        # selectively, e.g. apply_conditions: ["night"].
+        try:
+            image, mask = self.transform(image, mask, condition=condition)
+        except TypeError:
+            # Backward compatibility for transforms that still accept only image/mask.
+            image, mask = self.transform(image, mask)
 
         output: Dict[str, Any] = {
             "image": image,
-            "condition": sample.get("condition", "unknown"),
+            "condition": condition,
             "image_path": str(image_path),
         }
 
