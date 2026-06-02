@@ -6,11 +6,19 @@ import torch.nn as nn
 import segmentation_models_pytorch as smp
 
 
-
 class UniversalHybridLoss(nn.Module):
-    def __init__(self, loss_name: str, ignore_index: int, class_weights: torch.Tensor | None = None):
+    def __init__(
+        self, 
+        loss_name: str, 
+        ignore_index: int, 
+        class_weights: torch.Tensor | None = None,
+        ce_weight: float = 1.0,
+        dice_weight: float = 1.0
+    ):
         super().__init__()
         self.loss_name = loss_name
+        self.ce_weight = ce_weight
+        self.dice_weight = dice_weight
         
         # 1. 크로스 엔트로피 정의 (가중치가 들어오면 자동으로 반영됨)
         self.ce_loss = nn.CrossEntropyLoss(ignore_index=ignore_index, weight=class_weights)
@@ -28,11 +36,17 @@ class UniversalHybridLoss(nn.Module):
         if self.loss_name == "cross_entropy":
             return self.ce_loss(pred, target)
             
-        # [메뉴 B] 순수 Dice Loss 단독 사용 (지금 당장 하려는 실험!)
+        # [메뉴 B] 순수 Dice Loss 단독 사용
         elif self.loss_name == "dice":
             return self.dice_loss(pred, target)
             
-        # [메뉴 C] 하이브리드 Dice Loss (가중치 CE 50% + Dice 50% 섞어 쓰기)
+        # [추가된 메뉴] YAML 설정 파일 맞춤형 CE + Dice 조합 (가중치 비율 반영)
+        elif self.loss_name == "ce_dice":
+            ce_val = self.ce_loss(pred, target)
+            dice_val = self.dice_loss(pred, target)
+            return (self.ce_weight * ce_val) + (self.dice_weight * dice_val)
+            
+        # [메뉴 C] 기존 하이브리드 Dice Loss (50:50 고정 비율)
         elif self.loss_name == "combo_dice":
             return self.ce_loss(pred, target) + self.dice_loss(pred, target)
             
@@ -54,14 +68,24 @@ def build_loss(config: Dict[str, Any]) -> nn.Module:
     ignore_index = int(config["data"].get("ignore_index", 255))
     num_classes = int(config["data"].get("num_classes", 19))
 
+    # YAML에서 ce_weight와 dice_weight 가져오기 (없으면 기본값 1.0)
+    ce_weight = float(loss_config.get("ce_weight", 1.0))
+    dice_weight = float(loss_config.get("dice_weight", 1.0))
+
     # YAML 파일에서 클래스 가중치(weights) 설정 가져와 GPU 장치로 보내기
     raw_weights = loss_config.get("weights", None)
     if raw_weights is not None:
-        assert len(raw_weights) == num_classes, f"Weights 
+        assert len(raw_weights) == num_classes, f"Weights length ({len(raw_weights)}) must match num_classes ({num_classes})"
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         class_weights = torch.tensor(raw_weights, dtype=torch.float32).to(device)
     else:
         class_weights = None
 
-    
-    return UniversalHybridLoss(loss_name, ignore_index, class_weights)
+    # 가중치 비율 파라미터까지 함께 인스턴스에 넘겨줍니다.
+    return UniversalHybridLoss(
+        loss_name=loss_name, 
+        ignore_index=ignore_index, 
+        class_weights=class_weights,
+        ce_weight=ce_weight,
+        dice_weight=dice_weight
+    )
