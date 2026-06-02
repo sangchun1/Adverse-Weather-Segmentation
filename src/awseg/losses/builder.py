@@ -72,12 +72,12 @@ def build_loss(config: Dict[str, Any]) -> nn.Module:
     ce_weight = float(loss_config.get("ce_weight", 1.0))
     dice_weight = float(loss_config.get("dice_weight", 1.0))
 
-    # YAML 파일에서 클래스 가중치(weights) 설정 가져와 GPU 장치로 보내기
+    # YAML 파일에서 클래스 가중치(weights) 설정 가져오기 (GPU 강제 할당 제거)
     raw_weights = loss_config.get("weights", None)
     if raw_weights is not None:
         assert len(raw_weights) == num_classes, f"Weights length ({len(raw_weights)}) must match num_classes ({num_classes})"
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        class_weights = torch.tensor(raw_weights, dtype=torch.float32).to(device)
+        # .to(device)를 제거하여 나중에 메인 루프에서 criterion.to(device)로 한 번에 이동되도록 수정
+        class_weights = torch.tensor(raw_weights, dtype=torch.float32)
     else:
         class_weights = None
 
