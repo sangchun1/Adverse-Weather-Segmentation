@@ -9,21 +9,29 @@ from PIL import Image
 
 
 class Enhancer(Protocol):
-    """PIL RGB 이미지를 입력받아 enhancement된 PIL RGB 이미지를 반환하는 인터페이스."""
+    """PIL RGB image enhancer interface.
 
-    def __call__(self, image: Image.Image) -> Image.Image:
+    The optional ``condition`` argument is used for experiments where enhancement
+    should be applied only to specific ACDC conditions, e.g. only ``night``.
+    """
+
+    def __call__(
+        self,
+        image: Image.Image,
+        condition: Optional[str] = None,
+    ) -> Image.Image:
         ...
 
 
 def _ensure_rgb(image: Image.Image) -> Image.Image:
-    """입력 이미지를 RGB PIL 이미지로 통일한다."""
+    """Convert input image to RGB PIL image."""
     if image.mode != "RGB":
         return image.convert("RGB")
     return image
 
 
 def _pil_to_rgb_array(image: Image.Image) -> np.ndarray:
-    """PIL RGB 이미지를 uint8 RGB numpy 배열로 변환한다."""
+    """Convert PIL RGB image to uint8 RGB numpy array."""
     image = _ensure_rgb(image)
     array = np.asarray(image, dtype=np.uint8)
 
@@ -34,27 +42,71 @@ def _pil_to_rgb_array(image: Image.Image) -> np.ndarray:
 
 
 def _rgb_array_to_pil(array: np.ndarray) -> Image.Image:
-    """uint8 RGB numpy 배열을 PIL RGB 이미지로 변환한다."""
+    """Convert uint8 RGB numpy array to PIL RGB image."""
     array = np.clip(array, 0, 255).astype(np.uint8)
     return Image.fromarray(array, mode="RGB")
 
 
+def _normalize_condition(condition: Optional[str]) -> Optional[str]:
+    if condition is None:
+        return None
+    condition = str(condition).strip().lower()
+    return condition or None
+
+
+def _should_apply_to_condition(
+    condition: Optional[str],
+    apply_conditions: Any,
+) -> bool:
+    """Return whether enhancement should be applied for the sample condition.
+
+    Supported config values:
+      apply_conditions: "all"        -> apply to all samples
+      apply_conditions: ["night"]    -> apply only to night samples
+      apply_conditions: "night"      -> apply only to night samples
+      apply_conditions: null/omitted  -> apply to all samples
+    """
+    if apply_conditions is None:
+        return True
+
+    if isinstance(apply_conditions, str):
+        value = apply_conditions.strip().lower()
+        if value in {"", "all", "any", "*"}:
+            return True
+        allowed_conditions = {value}
+    elif isinstance(apply_conditions, (list, tuple, set)):
+        allowed_conditions = {str(item).strip().lower() for item in apply_conditions}
+        allowed_conditions.discard("")
+        if not allowed_conditions or allowed_conditions & {"all", "any", "*"}:
+            return True
+    else:
+        raise ValueError(
+            "enhancement.apply_conditions must be one of: null, 'all', 'night', "
+            f"or a list of condition names. Got {apply_conditions!r}."
+        )
+
+    normalized_condition = _normalize_condition(condition)
+    return normalized_condition in allowed_conditions
+
+
 @dataclass
 class IdentityEnhancer:
-    """아무 enhancement도 적용하지 않는 기본 enhancer."""
+    """No-op enhancer."""
 
-    def __call__(self, image: Image.Image) -> Image.Image:
+    def __call__(
+        self,
+        image: Image.Image,
+        condition: Optional[str] = None,
+    ) -> Image.Image:
         return _ensure_rgb(image)
 
 
 @dataclass
 class GammaCorrection:
-    """야간 이미지 밝기 보정을 위한 gamma correction.
+    """Gamma correction for low-light images.
 
-    gamma < 1.0이면 이미지가 밝아지고,
-    gamma > 1.0이면 이미지가 어두워진다.
-
-    night 실험에서는 0.4~0.8 범위를 우선 추천한다.
+    gamma < 1.0 brightens images.
+    gamma > 1.0 darkens images.
     """
 
     gamma: float = 0.6
@@ -63,7 +115,11 @@ class GammaCorrection:
         if self.gamma <= 0:
             raise ValueError(f"gamma must be positive, got {self.gamma}")
 
-    def __call__(self, image: Image.Image) -> Image.Image:
+    def __call__(
+        self,
+        image: Image.Image,
+        condition: Optional[str] = None,
+    ) -> Image.Image:
         rgb = _pil_to_rgb_array(image).astype(np.float32) / 255.0
         enhanced = np.power(rgb, self.gamma) * 255.0
         return _rgb_array_to_pil(enhanced)
@@ -71,10 +127,10 @@ class GammaCorrection:
 
 @dataclass
 class CLAHEEnhancer:
-    """밝기 채널에만 CLAHE를 적용하는 local contrast enhancement.
+    """Local contrast enhancement using CLAHE on a luminance-like channel.
 
-    RGB 전체에 histogram equalization을 적용하면 색이 많이 변할 수 있으므로,
-    기본값은 LAB 색공간의 L 채널에만 CLAHE를 적용한다.
+    Applying histogram equalization to all RGB channels can distort colors.
+    Therefore, the default is LAB L-channel CLAHE.
     """
 
     clip_limit: float = 2.0
@@ -99,7 +155,11 @@ class CLAHEEnhancer:
                 f"got {self.color_space!r}"
             )
 
-    def __call__(self, image: Image.Image) -> Image.Image:
+    def __call__(
+        self,
+        image: Image.Image,
+        condition: Optional[str] = None,
+    ) -> Image.Image:
         rgb = _pil_to_rgb_array(image)
 
         clahe = cv2.createCLAHE(
@@ -111,7 +171,6 @@ class CLAHEEnhancer:
             lab = cv2.cvtColor(rgb, cv2.COLOR_RGB2LAB)
             l_channel, a_channel, b_channel = cv2.split(lab)
             l_channel = clahe.apply(l_channel)
-
             enhanced = cv2.merge((l_channel, a_channel, b_channel))
             enhanced = cv2.cvtColor(enhanced, cv2.COLOR_LAB2RGB)
             return _rgb_array_to_pil(enhanced)
@@ -120,7 +179,6 @@ class CLAHEEnhancer:
             hsv = cv2.cvtColor(rgb, cv2.COLOR_RGB2HSV)
             h_channel, s_channel, v_channel = cv2.split(hsv)
             v_channel = clahe.apply(v_channel)
-
             enhanced = cv2.merge((h_channel, s_channel, v_channel))
             enhanced = cv2.cvtColor(enhanced, cv2.COLOR_HSV2RGB)
             return _rgb_array_to_pil(enhanced)
@@ -128,7 +186,6 @@ class CLAHEEnhancer:
         ycrcb = cv2.cvtColor(rgb, cv2.COLOR_RGB2YCrCb)
         y_channel, cr_channel, cb_channel = cv2.split(ycrcb)
         y_channel = clahe.apply(y_channel)
-
         enhanced = cv2.merge((y_channel, cr_channel, cb_channel))
         enhanced = cv2.cvtColor(enhanced, cv2.COLOR_YCrCb2RGB)
         return _rgb_array_to_pil(enhanced)
@@ -136,11 +193,7 @@ class CLAHEEnhancer:
 
 @dataclass
 class GammaCLAHEEnhancer:
-    """Gamma correction 후 CLAHE를 적용하는 조합 실험용 enhancer.
-
-    단일 gamma / CLAHE보다 강한 보정이 필요할 때 사용한다.
-    단, noise나 halo가 커질 수 있어서 후순위 ablation으로 권장한다.
-    """
+    """Apply gamma correction first, then CLAHE."""
 
     gamma: float = 0.7
     clip_limit: float = 2.0
@@ -155,18 +208,51 @@ class GammaCLAHEEnhancer:
             color_space=self.color_space,
         )
 
-    def __call__(self, image: Image.Image) -> Image.Image:
-        image = self.gamma_enhancer(image)
-        image = self.clahe_enhancer(image)
+    def __call__(
+        self,
+        image: Image.Image,
+        condition: Optional[str] = None,
+    ) -> Image.Image:
+        image = self.gamma_enhancer(image, condition=condition)
+        image = self.clahe_enhancer(image, condition=condition)
         return image
 
 
-def _get_enhancement_config(config: dict[str, Any]) -> dict[str, Any]:
-    """config에서 enhancement 설정 block을 가져온다.
+@dataclass
+class ConditionalEnhancer:
+    """Condition-aware wrapper for an enhancer.
 
-    train.enhancement 구조와 전역 enhancement 구조를 둘 다 지원한다.
+    This enables two all-data experiments with one code path:
+      - apply_conditions: "all"      -> enhance every condition
+      - apply_conditions: ["night"]  -> enhance only night samples
     """
 
+    enhancer: Enhancer
+    apply_conditions: Any = None
+
+    def __call__(
+        self,
+        image: Image.Image,
+        condition: Optional[str] = None,
+    ) -> Image.Image:
+        if _should_apply_to_condition(
+            condition=condition,
+            apply_conditions=self.apply_conditions,
+        ):
+            return self.enhancer(image, condition=condition)
+
+        return _ensure_rgb(image)
+
+
+def _get_enhancement_config(config: dict[str, Any]) -> dict[str, Any]:
+    """Get enhancement config block.
+
+    Supports both:
+      enhancement: {...}
+    and legacy:
+      train:
+        enhancement: {...}
+    """
     if "enhancement" in config:
         return dict(config.get("enhancement") or {})
 
@@ -179,8 +265,7 @@ def _get_enhancement_config(config: dict[str, Any]) -> dict[str, Any]:
 
 
 def _parse_tile_grid_size(value: Any) -> tuple[int, int]:
-    """YAML list/int/tuple을 CLAHE tileGridSize tuple로 변환한다."""
-
+    """Convert YAML list/int/tuple to OpenCV CLAHE tileGridSize tuple."""
     if value is None:
         return (8, 8)
 
@@ -193,18 +278,45 @@ def _parse_tile_grid_size(value: Any) -> tuple[int, int]:
     raise ValueError(f"Invalid tile_grid_size: {value!r}")
 
 
+def _should_apply_to_split(split: Optional[str], apply_to: Any) -> bool:
+    """Return whether enhancement should be enabled for this split."""
+    if split is None or apply_to is None:
+        return True
+
+    if isinstance(apply_to, str):
+        apply_to = [apply_to]
+
+    apply_to = {str(item).lower() for item in apply_to}
+
+    if apply_to & {"all", "any", "*"}:
+        return True
+
+    return split.lower() in apply_to
+
+
 def build_enhancer(config: dict[str, Any], split: Optional[str] = None) -> Enhancer:
-    """config에 맞는 image enhancement 객체를 생성한다.
+    """Build image enhancer from config.
 
-    Args:
-        config: 전체 experiment config dictionary.
-        split: train / val / test 중 하나.
-            apply_to가 설정된 경우 split별 적용 여부를 결정한다.
+    Example 1: all data + enhancement for all conditions
 
-    Returns:
-        PIL image를 입력받아 PIL image를 반환하는 enhancer.
+        enhancement:
+          enabled: true
+          name: "gamma"
+          apply_to: ["train", "val", "test"]
+          apply_conditions: "all"
+          gamma: 0.6
+
+    Example 2: all data + enhancement only for night condition
+
+        enhancement:
+          enabled: true
+          name: "clahe"
+          apply_to: ["train", "val", "test"]
+          apply_conditions: ["night"]
+          clip_limit: 2.0
+          tile_grid_size: [8, 8]
+          color_space: "lab"
     """
-
     enhancement_config = _get_enhancement_config(config)
 
     enabled = bool(enhancement_config.get("enabled", False))
@@ -214,23 +326,16 @@ def build_enhancer(config: dict[str, Any], split: Optional[str] = None) -> Enhan
         return IdentityEnhancer()
 
     apply_to = enhancement_config.get("apply_to", None)
-
-    if split is not None and apply_to is not None:
-        if isinstance(apply_to, str):
-            apply_to = [apply_to]
-
-        apply_to = {str(item).lower() for item in apply_to}
-
-        if split.lower() not in apply_to:
-            return IdentityEnhancer()
+    if not _should_apply_to_split(split=split, apply_to=apply_to):
+        return IdentityEnhancer()
 
     if name in {"gamma", "gamma_correction"}:
-        return GammaCorrection(
+        enhancer: Enhancer = GammaCorrection(
             gamma=float(enhancement_config.get("gamma", 0.6)),
         )
 
-    if name in {"clahe", "lab_clahe", "luminance_clahe"}:
-        return CLAHEEnhancer(
+    elif name in {"clahe", "lab_clahe", "luminance_clahe"}:
+        enhancer = CLAHEEnhancer(
             clip_limit=float(enhancement_config.get("clip_limit", 2.0)),
             tile_grid_size=_parse_tile_grid_size(
                 enhancement_config.get("tile_grid_size", [8, 8])
@@ -238,8 +343,8 @@ def build_enhancer(config: dict[str, Any], split: Optional[str] = None) -> Enhan
             color_space=str(enhancement_config.get("color_space", "lab")),
         )
 
-    if name in {"gamma_clahe", "gamma+clahe"}:
-        return GammaCLAHEEnhancer(
+    elif name in {"gamma_clahe", "gamma+clahe"}:
+        enhancer = GammaCLAHEEnhancer(
             gamma=float(enhancement_config.get("gamma", 0.7)),
             clip_limit=float(enhancement_config.get("clip_limit", 2.0)),
             tile_grid_size=_parse_tile_grid_size(
@@ -248,7 +353,7 @@ def build_enhancer(config: dict[str, Any], split: Optional[str] = None) -> Enhan
             color_space=str(enhancement_config.get("color_space", "lab")),
         )
 
-    if name in {"sci", "zero_dce", "zerodce", "retinexformer"}:
+    elif name in {"sci", "zero_dce", "zerodce", "retinexformer"}:
         raise ValueError(
             f"enhancement.name={name!r} is an offline enhancement method. "
             "Do not run SCI / Zero-DCE / Retinexformer inside enhancement.py. "
@@ -256,8 +361,25 @@ def build_enhancer(config: dict[str, Any], split: Optional[str] = None) -> Enhan
             "enhancement.enabled=false and image paths pointing to data/enhanced/."
         )
 
-    raise ValueError(
-        f"Unknown enhancement method: {name!r}. "
-        "Supported on-the-fly methods: none, gamma, clahe, gamma_clahe. "
-        "Offline methods: sci, zero_dce, retinexformer."
+    else:
+        raise ValueError(
+            f"Unknown enhancement method: {name!r}. "
+            "Supported on-the-fly methods: none, gamma, clahe, gamma_clahe. "
+            "Offline methods: sci, zero_dce, retinexformer."
+        )
+
+    return ConditionalEnhancer(
+        enhancer=enhancer,
+        apply_conditions=enhancement_config.get("apply_conditions", "all"),
     )
+
+
+def apply_enhancement(
+    image: Image.Image,
+    config: dict[str, Any],
+    split: Optional[str] = None,
+    condition: Optional[str] = None,
+) -> Image.Image:
+    """Functional API for applying configured enhancement to one image."""
+    enhancer = build_enhancer(config=config, split=split)
+    return enhancer(image, condition=condition)

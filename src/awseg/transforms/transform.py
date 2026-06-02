@@ -6,20 +6,22 @@ import numpy as np
 import torch
 from PIL import Image
 
+from awseg.transforms.enhancement import build_enhancer
+
 
 class BaselineTransform:
     """Baseline transform for semantic segmentation.
 
-    This transform is intentionally simple for the baseline experiment:
-    1. Resize image and mask to the configured input size.
-    2. Normalize image.
-    3. Convert image and mask to torch.Tensor.
+    Pipeline:
+      1. Convert image to RGB.
+      2. Apply optional enhancement before resizing.
+      3. Resize image and mask to the configured input size.
+      4. Normalize image.
+      5. Convert image and mask to torch.Tensor.
 
     Important:
-    - Image uses bilinear interpolation.
-    - Mask uses nearest-neighbor interpolation to preserve class IDs.
-    - Enhancement preprocessing and augmentation are not applied here yet.
-      They can be added later through build_transform().
+      - Image uses bilinear interpolation.
+      - Mask uses nearest-neighbor interpolation to preserve class IDs.
     """
 
     def __init__(
@@ -27,6 +29,7 @@ class BaselineTransform:
         size: Tuple[int, int],
         mean: tuple[float, float, float] = (0.485, 0.456, 0.406),
         std: tuple[float, float, float] = (0.229, 0.224, 0.225),
+        enhancer=None,
     ) -> None:
         """Initialize baseline transform.
 
@@ -34,21 +37,25 @@ class BaselineTransform:
             size: Target image size as (height, width).
             mean: RGB channel mean for normalization.
             std: RGB channel standard deviation for normalization.
+            enhancer: Optional condition-aware image enhancer.
         """
         self.height, self.width = size
         self.mean = np.array(mean, dtype=np.float32)
         self.std = np.array(std, dtype=np.float32)
+        self.enhancer = enhancer
 
     def __call__(
         self,
         image: Image.Image,
         mask: Optional[Image.Image] = None,
+        condition: Optional[str] = None,
     ) -> tuple[torch.Tensor, Optional[torch.Tensor]]:
         """Apply transform to image and mask.
 
         Args:
             image: PIL RGB image.
             mask: Optional PIL mask image containing class IDs.
+            condition: Optional ACDC condition name, e.g. night/fog/rain/snow.
 
         Returns:
             image: FloatTensor with shape [3, H, W].
@@ -56,6 +63,11 @@ class BaselineTransform:
         """
         if image.mode != "RGB":
             image = image.convert("RGB")
+
+        if self.enhancer is not None:
+            image = self.enhancer(image, condition=condition)
+            if image.mode != "RGB":
+                image = image.convert("RGB")
 
         image = image.resize((self.width, self.height), Image.BILINEAR)
 
@@ -71,7 +83,6 @@ class BaselineTransform:
 
         mask_np = np.array(mask, dtype=np.int64)
         mask_tensor = torch.from_numpy(mask_np).long()
-
         return image_tensor, mask_tensor
 
 
@@ -82,8 +93,8 @@ class FrequencyAugmentationTransform:
     Frequency perturbation is applied only for the train split.
 
     Output:
-        image: FloatTensor with shape [3, H, W]
-        mask: LongTensor with shape [H, W], or None
+      image: FloatTensor with shape [3, H, W]
+      mask: LongTensor with shape [H, W], or None
     """
 
     def __init__(
@@ -96,24 +107,31 @@ class FrequencyAugmentationTransform:
         low_radius_ratio: float = 0.08,
         low_scale_range: tuple[float, float] = (0.8, 1.2),
         high_scale_range: tuple[float, float] = (0.9, 1.1),
+        enhancer=None,
     ) -> None:
         self.height, self.width = size
         self.split = split
         self.mean = np.array(mean, dtype=np.float32)
         self.std = np.array(std, dtype=np.float32)
-
         self.p = float(p)
         self.low_radius_ratio = float(low_radius_ratio)
         self.low_scale_range = tuple(low_scale_range)
         self.high_scale_range = tuple(high_scale_range)
+        self.enhancer = enhancer
 
     def __call__(
         self,
         image: Image.Image,
         mask: Optional[Image.Image] = None,
+        condition: Optional[str] = None,
     ) -> tuple[torch.Tensor, Optional[torch.Tensor]]:
         if image.mode != "RGB":
             image = image.convert("RGB")
+
+        if self.enhancer is not None:
+            image = self.enhancer(image, condition=condition)
+            if image.mode != "RGB":
+                image = image.convert("RGB")
 
         image = image.resize((self.width, self.height), Image.BILINEAR)
 
@@ -138,7 +156,6 @@ class FrequencyAugmentationTransform:
 
         mask_np = np.array(mask, dtype=np.int64)
         mask_tensor = torch.from_numpy(mask_np).long()
-
         return image_tensor, mask_tensor
 
 
@@ -148,17 +165,13 @@ class FrequencyMapConcatTransform:
     This transform changes the input channel count.
 
     Modes:
-        - mode="low":
-            output shape is [4, H, W]
-            RGB + low-frequency map
-
-        - mode="low_high":
-            output shape is [5, H, W]
-            RGB + low-frequency map + high-frequency map
+      - mode="low": output shape is [4, H, W] RGB + low-frequency map
+      - mode="low_high": output shape is [5, H, W]
+        RGB + low-frequency map + high-frequency map
 
     Important:
-        This transform must be applied consistently to train/val/test,
-        because the model input channel count changes.
+      This transform must be applied consistently to train/val/test, because the
+      model input channel count changes.
     """
 
     def __init__(
@@ -170,6 +183,7 @@ class FrequencyMapConcatTransform:
         low_radius_ratio: float = 0.08,
         frequency_map_mean: float = 0.5,
         frequency_map_std: float = 0.5,
+        enhancer=None,
     ) -> None:
         if mode not in {"low", "low_high"}:
             raise ValueError(
@@ -179,21 +193,26 @@ class FrequencyMapConcatTransform:
 
         self.height, self.width = size
         self.mode = mode
-
         self.mean = np.array(mean, dtype=np.float32)
         self.std = np.array(std, dtype=np.float32)
-
         self.low_radius_ratio = float(low_radius_ratio)
         self.frequency_map_mean = float(frequency_map_mean)
         self.frequency_map_std = float(frequency_map_std)
+        self.enhancer = enhancer
 
     def __call__(
         self,
         image: Image.Image,
         mask: Optional[Image.Image] = None,
+        condition: Optional[str] = None,
     ) -> tuple[torch.Tensor, Optional[torch.Tensor]]:
         if image.mode != "RGB":
             image = image.convert("RGB")
+
+        if self.enhancer is not None:
+            image = self.enhancer(image, condition=condition)
+            if image.mode != "RGB":
+                image = image.convert("RGB")
 
         image = image.resize((self.width, self.height), Image.BILINEAR)
 
@@ -201,7 +220,6 @@ class FrequencyMapConcatTransform:
             mask = mask.resize((self.width, self.height), Image.NEAREST)
 
         image_np = np.array(image, dtype=np.float32) / 255.0
-
         image_tensor = _make_rgb_frequency_tensor(
             image_np=image_np,
             mode=self.mode,
@@ -217,7 +235,6 @@ class FrequencyMapConcatTransform:
 
         mask_np = np.array(mask, dtype=np.int64)
         mask_tensor = torch.from_numpy(mask_np).long()
-
         return image_tensor, mask_tensor
 
 
@@ -227,12 +244,12 @@ class FrequencyAugmentationMapConcatTransform:
     This is for combined experiments.
 
     Example:
-        RGB + low-frequency map input,
-        while applying frequency augmentation only during training.
+      RGB + low-frequency map input, while applying frequency augmentation only
+      during training.
 
     Output channel count depends on mode:
-        - mode="low": [4, H, W]
-        - mode="low_high": [5, H, W]
+      - mode="low": [4, H, W]
+      - mode="low_high": [5, H, W]
     """
 
     def __init__(
@@ -248,6 +265,7 @@ class FrequencyAugmentationMapConcatTransform:
         high_scale_range: tuple[float, float] = (0.9, 1.1),
         frequency_map_mean: float = 0.5,
         frequency_map_std: float = 0.5,
+        enhancer=None,
     ) -> None:
         if mode not in {"low", "low_high"}:
             raise ValueError(
@@ -258,25 +276,29 @@ class FrequencyAugmentationMapConcatTransform:
         self.height, self.width = size
         self.split = split
         self.mode = mode
-
         self.mean = np.array(mean, dtype=np.float32)
         self.std = np.array(std, dtype=np.float32)
-
         self.p = float(p)
         self.low_radius_ratio = float(low_radius_ratio)
         self.low_scale_range = tuple(low_scale_range)
         self.high_scale_range = tuple(high_scale_range)
-
         self.frequency_map_mean = float(frequency_map_mean)
         self.frequency_map_std = float(frequency_map_std)
+        self.enhancer = enhancer
 
     def __call__(
         self,
         image: Image.Image,
         mask: Optional[Image.Image] = None,
+        condition: Optional[str] = None,
     ) -> tuple[torch.Tensor, Optional[torch.Tensor]]:
         if image.mode != "RGB":
             image = image.convert("RGB")
+
+        if self.enhancer is not None:
+            image = self.enhancer(image, condition=condition)
+            if image.mode != "RGB":
+                image = image.convert("RGB")
 
         image = image.resize((self.width, self.height), Image.BILINEAR)
 
@@ -308,7 +330,6 @@ class FrequencyAugmentationMapConcatTransform:
 
         mask_np = np.array(mask, dtype=np.int64)
         mask_tensor = torch.from_numpy(mask_np).long()
-
         return image_tensor, mask_tensor
 
 
@@ -343,10 +364,8 @@ def _apply_frequency_augmentation(
     high_scale = np.random.uniform(high_scale_range[0], high_scale_range[1])
 
     augmented_channels = []
-
     for channel_idx in range(3):
         channel = image_np[:, :, channel_idx]
-
         freq = np.fft.fft2(channel)
         freq_shifted = np.fft.fftshift(freq)
 
@@ -356,12 +375,10 @@ def _apply_frequency_augmentation(
 
         freq_aug = np.fft.ifftshift(freq_shifted_aug)
         channel_aug = np.fft.ifft2(freq_aug).real
-
         augmented_channels.append(channel_aug)
 
     augmented = np.stack(augmented_channels, axis=-1)
     augmented = np.clip(augmented, 0.0, 1.0).astype(np.float32)
-
     return augmented
 
 
@@ -396,15 +413,12 @@ def _make_rgb_frequency_tensor(
         mode=mode,
         low_radius_ratio=low_radius_ratio,
     )
-
     frequency_maps = (
         frequency_maps - frequency_map_mean
     ) / max(frequency_map_std, 1e-6)
-
     frequency_tensor = torch.from_numpy(frequency_maps).permute(2, 0, 1).float()
 
     image_tensor = torch.cat([rgb_tensor, frequency_tensor], dim=0)
-
     return image_tensor
 
 
@@ -422,8 +436,8 @@ def _compute_frequency_maps(
 
     Returns:
         Frequency map array:
-            - mode="low": shape [H, W, 1]
-            - mode="low_high": shape [H, W, 2]
+          - mode="low": shape [H, W, 1]
+          - mode="low_high": shape [H, W, 2]
     """
     if mode not in {"low", "low_high"}:
         raise ValueError(
@@ -449,7 +463,6 @@ def _compute_frequency_maps(
 
     low_freq_shifted = np.zeros_like(freq_shifted)
     low_freq_shifted[low_mask] = freq_shifted[low_mask]
-
     low_freq = np.fft.ifftshift(low_freq_shifted)
     low_map = np.fft.ifft2(low_freq).real
     low_map = np.clip(low_map, 0.0, 1.0).astype(np.float32)
@@ -459,7 +472,6 @@ def _compute_frequency_maps(
 
     high_map = np.abs(gray - low_map).astype(np.float32)
     high_map = high_map / (high_map.max() + 1e-6)
-
     return np.stack([low_map, high_map], axis=-1).astype(np.float32)
 
 
@@ -471,12 +483,9 @@ def _make_low_frequency_mask(
     """Make circular low-frequency mask for centered FFT output."""
     center_y = height // 2
     center_x = width // 2
-
     y, x = np.ogrid[:height, :width]
-
     distance = np.sqrt((y - center_y) ** 2 + (x - center_x) ** 2)
     radius = max(1, int(min(height, width) * low_radius_ratio))
-
     return distance <= radius
 
 
@@ -484,15 +493,19 @@ def build_transform(config: dict, split: str):
     """Build transform from config.
 
     Supported augmentation names:
-        - none
-        - baseline
-        - frequency_aug
-        - frequency_map_low
-        - frequency_map_low_high
-        - frequency_aug_map_low
-        - frequency_aug_map_low_high
-        - frequency_map_low_freq_aug
-        - frequency_map_low_high_freq_aug
+      - none
+      - baseline
+      - frequency_aug
+      - frequency_map_low
+      - frequency_map_low_high
+      - frequency_aug_map_low
+      - frequency_aug_map_low_high
+      - frequency_map_low_freq_aug
+      - frequency_map_low_high_freq_aug
+
+    Enhancement is handled independently through config["enhancement"].
+    It can be combined with baseline/frequency transforms, although the current
+    all-data experiments mainly use augmentation.name="none".
 
     Args:
         config: Experiment config dictionary.
@@ -502,10 +515,8 @@ def build_transform(config: dict, split: str):
         Transform instance.
     """
     data_config = config["data"]
-
     height = int(data_config["input_height"])
     width = int(data_config["input_width"])
-
     mean = tuple(data_config.get("mean", [0.485, 0.456, 0.406]))
     std = tuple(data_config.get("std", [0.229, 0.224, 0.225]))
 
@@ -513,11 +524,14 @@ def build_transform(config: dict, split: str):
     augmentation_enabled = bool(augmentation_config.get("enabled", False))
     augmentation_name = str(augmentation_config.get("name", "none")).lower()
 
+    enhancer = build_enhancer(config, split=split)
+
     if not augmentation_enabled or augmentation_name in {"none", "baseline"}:
         return BaselineTransform(
             size=(height, width),
             mean=mean,
             std=std,
+            enhancer=enhancer,
         )
 
     if augmentation_name == "frequency_aug":
@@ -527,15 +541,10 @@ def build_transform(config: dict, split: str):
             mean=mean,
             std=std,
             p=float(augmentation_config.get("p", 0.5)),
-            low_radius_ratio=float(
-                augmentation_config.get("low_radius_ratio", 0.08)
-            ),
-            low_scale_range=tuple(
-                augmentation_config.get("low_scale_range", [0.8, 1.2])
-            ),
-            high_scale_range=tuple(
-                augmentation_config.get("high_scale_range", [0.9, 1.1])
-            ),
+            low_radius_ratio=float(augmentation_config.get("low_radius_ratio", 0.08)),
+            low_scale_range=tuple(augmentation_config.get("low_scale_range", [0.8, 1.2])),
+            high_scale_range=tuple(augmentation_config.get("high_scale_range", [0.9, 1.1])),
+            enhancer=enhancer,
         )
 
     if augmentation_name == "frequency_map_low":
@@ -544,11 +553,10 @@ def build_transform(config: dict, split: str):
             mode="low",
             mean=mean,
             std=std,
-            low_radius_ratio=float(
-                augmentation_config.get("low_radius_ratio", 0.08)
-            ),
+            low_radius_ratio=float(augmentation_config.get("low_radius_ratio", 0.08)),
             frequency_map_mean=float(augmentation_config.get("mean", 0.5)),
             frequency_map_std=float(augmentation_config.get("std", 0.5)),
+            enhancer=enhancer,
         )
 
     if augmentation_name == "frequency_map_low_high":
@@ -557,11 +565,10 @@ def build_transform(config: dict, split: str):
             mode="low_high",
             mean=mean,
             std=std,
-            low_radius_ratio=float(
-                augmentation_config.get("low_radius_ratio", 0.08)
-            ),
+            low_radius_ratio=float(augmentation_config.get("low_radius_ratio", 0.08)),
             frequency_map_mean=float(augmentation_config.get("mean", 0.5)),
             frequency_map_std=float(augmentation_config.get("std", 0.5)),
+            enhancer=enhancer,
         )
 
     if augmentation_name in {
@@ -575,17 +582,12 @@ def build_transform(config: dict, split: str):
             mean=mean,
             std=std,
             p=float(augmentation_config.get("p", 0.5)),
-            low_radius_ratio=float(
-                augmentation_config.get("low_radius_ratio", 0.08)
-            ),
-            low_scale_range=tuple(
-                augmentation_config.get("low_scale_range", [0.8, 1.2])
-            ),
-            high_scale_range=tuple(
-                augmentation_config.get("high_scale_range", [0.9, 1.1])
-            ),
+            low_radius_ratio=float(augmentation_config.get("low_radius_ratio", 0.08)),
+            low_scale_range=tuple(augmentation_config.get("low_scale_range", [0.8, 1.2])),
+            high_scale_range=tuple(augmentation_config.get("high_scale_range", [0.9, 1.1])),
             frequency_map_mean=float(augmentation_config.get("mean", 0.5)),
             frequency_map_std=float(augmentation_config.get("std", 0.5)),
+            enhancer=enhancer,
         )
 
     if augmentation_name in {
@@ -599,17 +601,12 @@ def build_transform(config: dict, split: str):
             mean=mean,
             std=std,
             p=float(augmentation_config.get("p", 0.5)),
-            low_radius_ratio=float(
-                augmentation_config.get("low_radius_ratio", 0.08)
-            ),
-            low_scale_range=tuple(
-                augmentation_config.get("low_scale_range", [0.8, 1.2])
-            ),
-            high_scale_range=tuple(
-                augmentation_config.get("high_scale_range", [0.9, 1.1])
-            ),
+            low_radius_ratio=float(augmentation_config.get("low_radius_ratio", 0.08)),
+            low_scale_range=tuple(augmentation_config.get("low_scale_range", [0.8, 1.2])),
+            high_scale_range=tuple(augmentation_config.get("high_scale_range", [0.9, 1.1])),
             frequency_map_mean=float(augmentation_config.get("mean", 0.5)),
             frequency_map_std=float(augmentation_config.get("std", 0.5)),
+            enhancer=enhancer,
         )
 
     raise ValueError(

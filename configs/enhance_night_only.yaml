@@ -1,0 +1,136 @@
+seed: 42
+
+data:
+  root: "."
+  split_dir: "data/splits"
+  train_csv: "train.csv"
+  val_csv: "val.csv"
+  test_csv: "test.csv"
+
+  input_width: 1024
+  input_height: 512
+  num_classes: 19
+  ignore_index: 255
+
+  # ImageNet normalization
+  mean: [0.485, 0.456, 0.406]
+  std: [0.229, 0.224, 0.225]
+
+  class_names:
+    - road
+    - sidewalk
+    - building
+    - wall
+    - fence
+    - pole
+    - traffic light
+    - traffic sign
+    - vegetation
+    - terrain
+    - sky
+    - person
+    - rider
+    - car
+    - truck
+    - bus
+    - train
+    - motorcycle
+    - bicycle
+
+model:
+  name: "unet"
+  in_channels: 3
+  num_classes: 19
+  base_channels: 64
+
+loss:
+  name: "cross_entropy"
+
+optimizer:
+  name: "adamw"
+  lr: 0.001
+  weight_decay: 0.0001
+
+scheduler:
+  name: "cosine_annealing"
+  T_max: 50
+  eta_min: 0.000001
+
+train:
+  epochs: 50
+  batch_size: 8
+  num_workers: 4
+  pin_memory: true
+  amp: true
+  grad_clip_norm: null
+  log_interval: 20
+  val_interval: 1
+
+augmentation:
+  enabled: false
+  name: "none"
+
+# ============================================================
+# Enhancement setting
+# - This config uses ALL conditions.
+# - Enhancement is applied ONLY to night samples.
+# - Default: Gamma
+# - To use CLAHE, comment out the Gamma block and uncomment CLAHE block.
+# ============================================================
+
+# Gamma: night only
+enhancement:
+  enabled: true
+  name: "gamma"
+  apply_to: ["train", "val", "test"]
+  apply_conditions: ["night"]
+  gamma: 0.6
+
+# CLAHE: night only
+# enhancement:
+#   enabled: true
+#   name: "clahe"
+#   apply_to: ["train", "val", "test"]
+#   apply_conditions: ["night"]
+#   clip_limit: 2.0
+#   tile_grid_size: [8, 8]
+#   color_space: "lab"
+
+checkpoint:
+  save_dir: "outputs/checkpoints/enhance_night_only_gamma"
+  # save_dir: "outputs/checkpoints/enhance_night_only_clahe"
+  save_best_name: "best_miou.pth"
+  save_last_name: "last.pth"
+  monitor: "val_miou"
+  mode: "max"
+
+early_stopping:
+  enabled: true
+  monitor: "val_miou"
+  mode: "max"
+  patience: 10
+  min_delta: 0.0001
+
+wandb:
+  enabled: true
+  project: "adverse-weather-segmentation"
+  entity: null
+  run_name: "enhance_night_only_gamma_unet"
+  # run_name: "enhance_night_only_clahe_unet"
+  tags:
+    - night_only_enhancement
+    - enhancement
+    - gamma
+    # - clahe
+    - unet
+    - acdc
+  notes: "U-Net trained on all ACDC conditions with gamma correction applied only to night images."
+  # notes: "U-Net trained on all ACDC conditions with CLAHE applied only to night images."
+  dir: "outputs"
+
+evaluate:
+  batch_size: 8
+  num_workers: 4
+  save_predictions: false
+  output_dir: "outputs/results/enhance_night_only_gamma"
+  # output_dir: "outputs/results/enhance_night_only_clahe"
