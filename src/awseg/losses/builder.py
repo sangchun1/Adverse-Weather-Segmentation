@@ -44,8 +44,8 @@ class UniversalHybridLoss(nn.Module):
         beta: float = 0.5,
         ohem_fraction: float = 0.2,
         gamma: float = 2.0,
-        tversky_weight: float = 1.0,  # ★ 전략 2: Tversky 가중치 파라미터 추가
-        lovasz_weight: float = 1.0    # ★ 전략 2: Lovasz 가중치 파라미터 추가
+        tversky_weight: float = 1.0,  
+        lovasz_weight: float = 1.0    
     ):
         super().__init__()
         self.loss_name = loss_name
@@ -99,11 +99,17 @@ class UniversalHybridLoss(nn.Module):
             tversky_val = self.tversky_loss(pred, target)
             return (self.ce_weight * ohem_val) + (self.dice_weight * tversky_val)
             
-        # ★ [추가된 최종 병기] Tversky + Lovasz 영역 집중형 복합 로스
         elif self.loss_name == "tversky_lovasz":
             tversky_val = self.tversky_loss(pred, target)
             lovasz_val = self.lovasz_loss(pred, target)
             return (self.tversky_weight * tversky_val) + (self.lovasz_weight * lovasz_val)
+            
+        # ★ [추가된 삼위일체 메뉴] CE(지탱) + Focal(동적 자극) + Dice(영역 최적화)
+        elif self.loss_name == "ce_focal_dice":
+            ce_val = self.ce_loss(pred, target)
+            focal_val = self.focal_loss(pred, target)
+            dice_val = self.dice_loss(pred, target)
+            return (self.ce_weight * ce_val) + focal_val + (self.dice_weight * dice_val)
             
         else:
             raise ValueError(f"Unsupported loss combination: {self.loss_name}")
@@ -124,7 +130,7 @@ def build_loss(config: Dict[str, Any]) -> nn.Module:
     ohem_fraction = float(loss_config.get("ohem_fraction", 0.2))
     gamma = float(loss_config.get("gamma", 2.0)) 
 
-    # ★ YAML에서 신규 가중치 파라미터 안전하게 가져오기 (기본값 1.0)
+    # 신규 가중치 파라미터 안전하게 가져오기
     tversky_weight = float(loss_config.get("tversky_weight", 1.0))
     lovasz_weight = float(loss_config.get("lovasz_weight", 1.0))
 
@@ -145,6 +151,6 @@ def build_loss(config: Dict[str, Any]) -> nn.Module:
         beta=beta,
         ohem_fraction=ohem_fraction,
         gamma=gamma,
-        tversky_weight=tversky_weight,  # 주입
-        lovasz_weight=lovasz_weight     # 주입
+        tversky_weight=tversky_weight, 
+        lovasz_weight=lovasz_weight     
     )
