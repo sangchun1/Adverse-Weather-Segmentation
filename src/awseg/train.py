@@ -219,6 +219,19 @@ def build_optimizer(config: Dict[str, Any], model: torch.nn.Module) -> torch.opt
     lr = float(optimizer_config.get("lr", train_config.get("lr", 1e-3)))
     weight_decay = float(optimizer_config.get("weight_decay", train_config.get("weight_decay", 0.0)))
 
+
+    encoder_lr = optimizer_config.get("encoder_lr", None)
+    head_lr = optimizer_config.get("head_lr", None)
+    if encoder_lr is not None and head_lr is not None and hasattr(model, "param_groups"):
+        params = model.param_groups(
+            encoder_lr=float(encoder_lr),
+            head_lr=float(head_lr),
+            weight_decay=weight_decay,
+        )
+    else:
+        params = model.parameters()
+
+
     if optimizer_name == "adamw":
         return torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
 
@@ -248,6 +261,21 @@ def build_scheduler(
             T_max=int(scheduler_config.get("T_max", config["train"]["epochs"])),
             eta_min=float(scheduler_config.get("eta_min", 1e-6)),
         )
+
+    if scheduler_name in {"poly", "polynomial"}:
+        total_epochs = int(config["train"]["epochs"])
+        power = float(scheduler_config.get("power", 1.0))
+        warmup_epochs = int(scheduler_config.get("warmup_epochs", 0))
+        min_factor = float(scheduler_config.get("min_factor", 0.0))
+
+        def lr_lambda(epoch: int) -> float:
+            if warmup_epochs > 0 and epoch < warmup_epochs:
+                return float(epoch + 1) / float(warmup_epochs)
+            t = (epoch - warmup_epochs) / max(1, (total_epochs - warmup_epochs))
+            t = min(max(t, 0.0), 1.0)
+            return max(min_factor, (1.0 - t) ** power)
+
+        return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lr_lambda)
 
     raise ValueError(f"Unknown scheduler: {scheduler_name}")
 
