@@ -1,0 +1,132 @@
+# 베이스라인 설정
+# Model: U-Net from scratch
+
+seed: 42
+
+data:
+  root: "."
+  split_dir: "data/splits"
+  train_csv: "train.csv"
+  val_csv: "val.csv"
+  test_csv: "test.csv"
+
+  input_width: 1024
+  input_height: 512
+  num_classes: 19
+  ignore_index: 255
+
+  # ImageNet normalization
+  mean: [0.485, 0.456, 0.406]
+  std: [0.229, 0.224, 0.225]
+
+  class_names:
+    - road
+    - sidewalk
+    - building
+    - wall
+    - fence
+    - pole
+    - traffic light
+    - traffic sign
+    - vegetation
+    - terrain
+    - sky
+    - person
+    - rider
+    - car
+    - truck
+    - bus
+    - train
+    - motorcycle
+    - bicycle
+
+model:
+  name: "unet"
+  in_channels: 3
+  num_classes: 19
+  base_channels: 64
+
+loss:
+  name: "ce_dice"    # 기존 "dice"에서 "ce_dice" 콤보로 변경
+  ce_weight: 1.0     # 배경(도로, 건물, 하늘)을 안정적으로 잡기 위한 기준 축
+  dice_weight: 0.3   # 작은 객체(사람, 오토바이)를 잡기 위한 보조 역할로 비중 축소
+  weights:
+    - 0.0409  # 0: road 
+    - 0.2653  # 1: sidewalk
+    - 0.0854  # 2: building
+    - 0.4925  # 3: wall
+    - 0.3127  # 4: fence
+    - 1.0000  # 5: pole
+    - 7.0630  # 6: traffic light
+    - 2.1880  # 7: traffic sign
+    - 0.0384  # 8: vegetation 
+    - 0.2478  # 9: terrain
+    - 0.0168  # 10: sky 
+    - 10.0000 # 11: person 
+    - 10.0000 # 12: rider 
+    - 0.4431  # 13: car
+    - 1.0806  # 14: truck
+    - 3.2782  # 15: bus
+    - 2.9486  # 16: train
+    - 10.0000 # 17: motorcycle 
+    - 10.0000 # 18: bicycle
+
+optimizer:
+  name: "adamw"
+  lr: 0.001
+  weight_decay: 0.0001
+
+scheduler:
+  name: "cosine_annealing"
+  T_max: 50
+  eta_min: 0.000001
+
+train:
+  epochs: 50
+  batch_size: 8
+  num_workers: 4
+  pin_memory: true
+  amp: true
+  grad_clip_norm: null
+  log_interval: 20
+  val_interval: 1
+
+augmentation:
+  enabled: false
+  name: "none"
+
+enhancement:
+  enabled: false
+  name: "none"
+
+checkpoint:
+  save_dir: "outputs/checkpoints/unet_cedice_v2" # v2로 버전 구분
+  save_best_name: "best_miou.pth"
+  save_last_name: "last.pth"
+  monitor: "val_miou"
+  mode: "max"
+
+early_stopping:
+  enabled: true
+  monitor: "val_miou"
+  mode: "max"
+  patience: 10
+  min_delta: 0.0001
+
+wandb:
+  enabled: true
+  project: "adverse-weather-segmentation"
+  entity: null
+  run_name: "unet_cedice_w0.3" # Weights 조절을 알 수 있도록 네이밍
+  tags:
+    - baseline
+    - unet
+    - acdc
+  notes: "U-Net with CE(1.0) + Dice(0.3) to stabilize background mIoU."
+  dir: "outputs"
+
+evaluate:
+  batch_size: 8
+  num_workers: 4
+  save_predictions: true  # false에서 true로 변경. 이제 평가 후 마스크 이미지가 저장됩니다.
+  output_dir: "outputs/checkpoints/unet_cedice_v2" # 결과 이미지가 저장될 전용 폴더 설정
