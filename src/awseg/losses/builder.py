@@ -43,17 +43,21 @@ class UniversalHybridLoss(nn.Module):
         alpha: float = 0.5,
         beta: float = 0.5,
         ohem_fraction: float = 0.2,
-        gamma: float = 2.0  # ★ Focal Loss를 위한 gamma 파라미터 추가
+        gamma: float = 2.0,
+        tversky_weight: float = 1.0,  # ★ 전략 2: Tversky 가중치 파라미터 추가
+        lovasz_weight: float = 1.0    # ★ 전략 2: Lovasz 가중치 파라미터 추가
     ):
         super().__init__()
         self.loss_name = loss_name
         self.ce_weight = ce_weight
         self.dice_weight = dice_weight
+        self.tversky_weight = tversky_weight
+        self.lovasz_weight = lovasz_weight
         
         # 1. 크로스 엔트로피 정의
         self.ce_loss = nn.CrossEntropyLoss(ignore_index=ignore_index, weight=class_weights)
         
-        # 2. 다이스 / 포컬 / 트버스키 정의 (gamma 값 동적 반영)
+        # 2. 다이스 / 포컬 / 트버스키 정의
         self.dice_loss = smp.losses.DiceLoss(mode='multiclass', ignore_index=ignore_index)
         self.focal_loss = smp.losses.FocalLoss(mode='multiclass', ignore_index=ignore_index, gamma=gamma)
         self.tversky_loss = smp.losses.TverskyLoss(mode='multiclass', ignore_index=ignore_index, alpha=alpha, beta=beta)
@@ -78,14 +82,13 @@ class UniversalHybridLoss(nn.Module):
         elif self.loss_name == "ce_tversky": 
             return (self.ce_weight * self.ce_loss(pred, target)) + (self.dice_weight * self.tversky_loss(pred, target))
             
-        # ★ [누락되었던 Focal 메뉴들 부활]
+        # [Focal 메뉴들]
         elif self.loss_name == "focal": 
             return self.focal_loss(pred, target)
         elif self.loss_name == "focal_tversky":
-            # ce_weight를 focal 가중치로, dice_weight를 tversky 가중치로 재활용합니다.
             return (self.ce_weight * self.focal_loss(pred, target)) + (self.dice_weight * self.tversky_loss(pred, target))
             
-        # [신규 고급 메뉴]
+        # [고급 메뉴]
         elif self.loss_name == "ce_lovasz":
             ce_val = self.ce_loss(pred, target)
             lovasz_val = self.lovasz_loss(pred, target)
@@ -95,6 +98,12 @@ class UniversalHybridLoss(nn.Module):
             ohem_val = self.ohem_loss(pred, target)
             tversky_val = self.tversky_loss(pred, target)
             return (self.ce_weight * ohem_val) + (self.dice_weight * tversky_val)
+            
+        # ★ [추가된 최종 병기] Tversky + Lovasz 영역 집중형 복합 로스
+        elif self.loss_name == "tversky_lovasz":
+            tversky_val = self.tversky_loss(pred, target)
+            lovasz_val = self.lovasz_loss(pred, target)
+            return (self.tversky_weight * tversky_val) + (self.lovasz_weight * lovasz_val)
             
         else:
             raise ValueError(f"Unsupported loss combination: {self.loss_name}")
@@ -112,9 +121,12 @@ def build_loss(config: Dict[str, Any]) -> nn.Module:
     alpha = float(loss_config.get("alpha", 0.5))
     beta = float(loss_config.get("beta", 0.5))
     
-    # ★ YAML에서 복합 파라미터 안전하게 가져오기
     ohem_fraction = float(loss_config.get("ohem_fraction", 0.2))
-    gamma = float(loss_config.get("gamma", 2.0)) # 누락되었던 gamma 파라미터 빌더에 추가
+    gamma = float(loss_config.get("gamma", 2.0)) 
+
+    # ★ YAML에서 신규 가중치 파라미터 안전하게 가져오기 (기본값 1.0)
+    tversky_weight = float(loss_config.get("tversky_weight", 1.0))
+    lovasz_weight = float(loss_config.get("lovasz_weight", 1.0))
 
     raw_weights = loss_config.get("weights", None)
     if raw_weights is not None:
@@ -123,7 +135,6 @@ def build_loss(config: Dict[str, Any]) -> nn.Module:
     else:
         class_weights = None
 
-    # 모든 변수를 파라미터 인스턴스에 온전하게 넘겨줍니다.
     return UniversalHybridLoss(
         loss_name=loss_name, 
         ignore_index=ignore_index, 
@@ -133,5 +144,7 @@ def build_loss(config: Dict[str, Any]) -> nn.Module:
         alpha=alpha, 
         beta=beta,
         ohem_fraction=ohem_fraction,
-        gamma=gamma # 추가됨
+        gamma=gamma,
+        tversky_weight=tversky_weight,  # 주입
+        lovasz_weight=lovasz_weight     # 주입
     )
