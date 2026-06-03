@@ -1,0 +1,113 @@
+# 베이스라인 설정
+# Model: U-Net from scratch
+
+seed: 42
+
+data:
+  root: "."
+  split_dir: "data/splits"
+  train_csv: "train.csv"
+  val_csv: "val.csv"
+  test_csv: "test.csv"
+
+  input_width: 1024
+  input_height: 512
+  num_classes: 19
+  ignore_index: 255
+
+  # ImageNet normalization
+  mean: [0.485, 0.456, 0.406]
+  std: [0.229, 0.224, 0.225]
+
+  class_names:
+    - road
+    - sidewalk
+    - building
+    - wall
+    - fence
+    - pole
+    - traffic light
+    - traffic sign
+    - vegetation
+    - terrain
+    - sky
+    - person
+    - rider
+    - car
+    - truck
+    - bus
+    - train
+    - motorcycle
+    - bicycle
+
+model:
+  name: "unet"
+  in_channels: 3
+  num_classes: 19
+  base_channels: 64
+
+loss:
+  name: "ce_lovasz" # mIoU 직접 최적화를 위한 신규 콤보 적용
+  ce_weight: 1.0    # 픽셀 단위 기본 형태를 잡는 CE 비중
+  dice_weight: 1.0  # Lovász-Softmax 비중 (코드 내 변수 재활용)
+  # 영역 기반 로스이므로 무의미하고 역효과를 내는 weights 리스트는 과감히 제거합니다.
+
+optimizer:
+  name: "adamw"
+  lr: 0.001
+  weight_decay: 0.0001
+
+scheduler:
+  name: "cosine_annealing"
+  T_max: 50
+  eta_min: 0.000001
+
+train:
+  epochs: 50
+  batch_size: 8
+  num_workers: 4
+  pin_memory: true
+  amp: true
+  grad_clip_norm: null
+  log_interval: 20
+  val_interval: 1
+
+augmentation:
+  enabled: false
+  name: "none"
+
+enhancement:
+  enabled: false
+  name: "none"
+
+checkpoint:
+  save_dir: "outputs/checkpoints/unet_ce_lovasz" # 폴더명 변경
+  save_best_name: "best_miou.pth"
+  save_last_name: "last.pth"
+  monitor: "val_miou"
+  mode: "max"
+
+early_stopping:
+  enabled: true
+  monitor: "val_miou"
+  mode: "max"
+  patience: 10
+  min_delta: 0.0001
+
+wandb:
+  enabled: true
+  project: "adverse-weather-segmentation"
+  entity: null
+  run_name: "unet_ce_lovasz" # 새로운 실험 이름
+  tags:
+    - baseline
+    - unet
+    - lovasz
+  notes: "U-Net with CE (1.0) + Lovasz (1.0) to directly optimize evaluation metric (mIoU)."
+  dir: "outputs"
+
+evaluate:
+  batch_size: 8
+  num_workers: 4
+  save_predictions: true 
+  output_dir: "outputs/checkpoints/unet_ce_lovasz"
