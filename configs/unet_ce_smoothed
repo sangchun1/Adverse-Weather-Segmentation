@@ -1,0 +1,132 @@
+# 베이스라인 설정
+# Model: U-Net from scratch
+
+seed: 42
+
+data:
+  root: "."
+  split_dir: "data/splits"
+  train_csv: "train.csv"
+  val_csv: "val.csv"
+  test_csv: "test.csv"
+
+  input_width: 1024
+  input_height: 512
+  num_classes: 19
+  ignore_index: 255
+
+  # ImageNet normalization
+  mean: [0.485, 0.456, 0.406]
+  std: [0.229, 0.224, 0.225]
+
+  class_names:
+    - road
+    - sidewalk
+    - building
+    - wall
+    - fence
+    - pole
+    - traffic light
+    - traffic sign
+    - vegetation
+    - terrain
+    - sky
+    - person
+    - rider
+    - car
+    - truck
+    - bus
+    - train
+    - motorcycle
+    - bicycle
+
+model:
+  name: "unet"
+  in_channels: 3
+  num_classes: 19
+  base_channels: 64
+
+loss:
+  name: "cross_entropy" 
+  # 극단적인 불균형을 방지하기 위해 제곱근 완화(Square Root Smoothing)를 적용한 가중치
+  weights:
+    - 0.2022  # 0: road 
+    - 0.5150  # 1: sidewalk
+    - 0.2922  # 2: building
+    - 0.7017  # 3: wall
+    - 0.5591  # 4: fence
+    - 1.0000  # 5: pole
+    - 2.6576  # 6: traffic light
+    - 1.4791  # 7: traffic sign
+    - 0.1959  # 8: vegetation 
+    - 0.4977  # 9: terrain
+    - 0.1296  # 10: sky 
+    - 3.1622  # 11: person 
+    - 3.1622  # 12: rider 
+    - 0.6656  # 13: car
+    - 1.0395  # 14: truck
+    - 1.8105  # 15: bus
+    - 1.7171  # 16: train
+    - 3.1622  # 17: motorcycle 
+    - 3.1622  # 18: bicycle
+
+optimizer:
+  name: "adamw"
+  lr: 0.001
+  weight_decay: 0.0001
+
+scheduler:
+  name: "cosine_annealing"
+  T_max: 50
+  eta_min: 0.000001
+
+train:
+  epochs: 50
+  batch_size: 8
+  num_workers: 4
+  pin_memory: true
+  amp: true
+  grad_clip_norm: null
+  log_interval: 20
+  val_interval: 1
+
+augmentation:
+  enabled: false
+  name: "none"
+
+enhancement:
+  enabled: false
+  name: "none"
+
+checkpoint:
+  save_dir: "outputs/checkpoints/unet_ce_smoothed" # 겹치지 않게 폴더명 변경
+  save_best_name: "best_miou.pth"
+  save_last_name: "last.pth"
+  monitor: "val_miou"
+  mode: "max"
+
+early_stopping:
+  enabled: true
+  monitor: "val_miou"
+  mode: "max"
+  patience: 10
+  min_delta: 0.0001
+
+wandb:
+  enabled: true
+  project: "adverse-weather-segmentation"
+  entity: null
+  run_name: "unet_ce_smoothed" # 실험 구분을 위해 run_name 변경
+  tags:
+    - baseline
+    - unet
+    - cross_entropy
+    - smoothed
+  notes: "U-Net from scratch baseline with CrossEntropyLoss using smoothed class weights."
+  dir: "outputs"
+
+evaluate:
+  batch_size: 8
+  num_workers: 4
+  save_predictions: true # 시각화 결과를 확인할 수 있도록 true로 변경
+  output_dir: "outputs/checkpoints/unet_ce_smoothed"
