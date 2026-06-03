@@ -31,7 +31,7 @@ class UniversalHybridLoss(nn.Module):
         # 3. 포컬 로스 정의
         self.focal_loss = smp.losses.FocalLoss(mode='multiclass', ignore_index=ignore_index)
 
-        # 4. 트버스키 로스 정의 (새로 추가됨)
+        # 4. 트버스키 로스 정의
         self.tversky_loss = smp.losses.TverskyLoss(mode='multiclass', ignore_index=ignore_index, alpha=alpha, beta=beta)
 
     def forward(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
@@ -59,9 +59,16 @@ class UniversalHybridLoss(nn.Module):
         elif self.loss_name == "focal":
             return self.ce_loss(pred, target) + self.focal_loss(pred, target)
             
-        # [추가된 메뉴 F] Tversky Loss 단독 사용 (작은 객체 탐지 특화)
+        # [메뉴 F] Tversky Loss 단독 사용 (작은 객체 탐지 특화)
         elif self.loss_name == "tversky":
             return self.tversky_loss(pred, target)
+            
+        # [추가된 최종 병기 G] CE + Tversky 콤보 로스 (배경 안정화 + 작은 객체 탐지)
+        elif self.loss_name == "ce_tversky":
+            ce_val = self.ce_loss(pred, target)
+            tversky_val = self.tversky_loss(pred, target)
+            # dice_weight 변수를 tversky의 가중치로 재활용하여 사용합니다.
+            return (self.ce_weight * ce_val) + (self.dice_weight * tversky_val)
             
         else:
             raise ValueError(f"Unsupported loss combination: {self.loss_name}")
