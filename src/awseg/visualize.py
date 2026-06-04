@@ -52,6 +52,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--alpha", type=float, default=0.55)
     parser.add_argument("--dpi", type=int, default=150)
+    parser.add_argument("--device", type=str, default=None, help="Device override, e.g. cuda:0, cuda:1, or cpu.")
     return parser.parse_args()
 
 
@@ -273,8 +274,9 @@ def visualize_predictions(
     seed: int,
     alpha: float,
     dpi: int,
+    device_arg: Optional[str] = None,
 ) -> None:
-    device = get_device()
+    device = torch.device(device_arg) if device_arg is not None else get_device()
     print(f"Using device: {device}")
 
     records = build_records(
@@ -385,6 +387,7 @@ def main() -> None:
         seed=args.seed,
         alpha=args.alpha,
         dpi=args.dpi,
+        device_arg=args.device,
     )
 
 

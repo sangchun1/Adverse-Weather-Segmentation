@@ -82,24 +82,13 @@ augmentation:
   name: "none"
 
   basic:
-    horizontal_flip:
-      enabled: false
-      prob: 0.0
-
     color_jitter:
       enabled: false
       prob: 0.0
 
-    class_balanced_crop:
-      enabled: false
-      prob: 0.0
-      rare_classes: []
-      min_pixels: 0
-
   weather:
     enabled: false
     mode: "none"
-    total_prob: 0.0
 
 enhancement:
   enabled: false

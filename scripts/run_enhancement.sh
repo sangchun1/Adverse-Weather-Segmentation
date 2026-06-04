@@ -26,6 +26,7 @@ set -euo pipefail
 
 BASE_CONFIG="${1:-configs/proposed.yaml}"
 CONDITION="${2:-${CONDITION:-}}"
+DEVICE="${3:-${DEVICE:-cuda:0}}"
 
 GROUP="enhancement"
 CONFIG_DIR="${CONFIG_DIR:-configs/enhancement}"
@@ -51,6 +52,7 @@ mkdir -p "${LOG_DIR}" "${TMP_CONFIG_DIR}" "outputs"
 
 export BASE_CONFIG
 export CONDITION
+export DEVICE
 export GROUP
 export CONFIG_DIR
 export EXPERIMENTS
@@ -71,6 +73,7 @@ else
 fi
 
 echo "Log file    : ${LOG_FILE}"
+echo "Device      : ${DEVICE}"
 echo "Eval split  : ${EVAL_SPLIT}"
 
 nohup bash -c '
@@ -117,6 +120,11 @@ fi
 CONDITION_ARGS=()
 if [[ -n "${CONDITION}" ]]; then
   CONDITION_ARGS=(--condition "${CONDITION}")
+fi
+
+DEVICE_ARGS=()
+if [[ -n "${DEVICE}" ]]; then
+  DEVICE_ARGS=(--device "${DEVICE}")
 fi
 
 ANALYZE_CONDITION="${CONDITION}"
@@ -242,6 +250,7 @@ PY
   python -m awseg.train \
     --config "${MERGED_CONFIG}" \
     --result-dir "${RESULT_DIR}" \
+    "${DEVICE_ARGS[@]}" \
     "${CONDITION_ARGS[@]}"
 
   echo ""
@@ -251,6 +260,7 @@ PY
     --checkpoint "${CHECKPOINT_PATH}" \
     --split "${EVAL_SPLIT}" \
     --result-dir "${RESULT_DIR}" \
+    "${DEVICE_ARGS[@]}" \
     "${CONDITION_ARGS[@]}"
 
   echo ""
@@ -260,6 +270,7 @@ PY
     --checkpoint "${CHECKPOINT_PATH}" \
     --split "${EVAL_SPLIT}" \
     --output-dir "${VIS_DIR}" \
+    "${DEVICE_ARGS[@]}" \
     --samples-per-condition "${SAMPLES_PER_CONDITION}" \
     --shuffle \
     --seed "${VIS_SEED}" \
@@ -273,7 +284,8 @@ PY
     --condition "${ANALYZE_CONDITION}" \
     --config "${MERGED_CONFIG}" \
     --checkpoint "${CHECKPOINT_PATH}" \
-    --output-dir "${ANALYSIS_DIR}"
+    --output-dir "${ANALYSIS_DIR}" \
+    "${DEVICE_ARGS[@]}"
 
   echo ""
   echo "[DONE] ${GROUP} experiment finished: ${RUN_NAME}"

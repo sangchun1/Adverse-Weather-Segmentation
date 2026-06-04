@@ -30,6 +30,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--result-dir", type=str, default="outputs/results/baseline")
     parser.add_argument("--result-path", type=str, default=None)
     parser.add_argument("--no-save-results", dest="save_results", action="store_false", default=True)
+    parser.add_argument("--device", type=str, default=None, help="Device override, e.g. cuda:0, cuda:1, or cpu.")
     return parser.parse_args()
 
 
@@ -311,7 +312,7 @@ def main() -> None:
     args = parse_args()
 
     config = load_config(args.config)
-    device = get_device()
+    device = torch.device(args.device) if args.device is not None else get_device()
 
     print(f"Using device: {device}")
 

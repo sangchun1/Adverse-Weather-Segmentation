@@ -5,7 +5,7 @@ set -euo pipefail
 #   bash scripts/run_tune.sh
 #   bash scripts/run_tune.sh 20
 #   bash scripts/run_tune.sh 20 configs/proposed.yaml
-#   bash scripts/run_tune.sh 20 configs/proposed.yaml night
+#   bash scripts/run_tune.sh 20 configs/proposed.yaml night cuda:1
 #
 # Environment variables:
 #   MAX_EPOCHS_PER_TRIAL=20 bash scripts/run_tune.sh
@@ -28,7 +28,7 @@ MAX_EPOCHS_PER_TRIAL="${MAX_EPOCHS_PER_TRIAL:-20}"
 OUTPUT_DIR="${OUTPUT_DIR:-outputs/tuning/segformer}"
 STUDY_NAME="${STUDY_NAME:-segformer_optuna}"
 STORAGE="${STORAGE:-sqlite:///${OUTPUT_DIR}/optuna.db}"
-DEVICE="${DEVICE:-}"
+DEVICE="${4:-${DEVICE:-cuda:0}}"
 RUN_EVAL="${RUN_EVAL:-0}"
 
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"

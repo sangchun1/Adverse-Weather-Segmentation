@@ -25,6 +25,7 @@ set -euo pipefail
 
 CONFIG_PATH="${1:-configs/baseline.yaml}"
 CONDITION="${2:-${CONDITION:-}}"
+DEVICE="${3:-${DEVICE:-cuda:0}}"
 
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
 
@@ -75,6 +76,7 @@ mkdir -p "outputs"
 
 export CONFIG_PATH
 export CONDITION
+export DEVICE
 export CHECKPOINT_PATH
 export EVAL_SPLIT
 export RESULT_DIR
@@ -96,6 +98,7 @@ fi
 echo "Log file: ${LOG_FILE}"
 echo "Checkpoint: ${CHECKPOINT_PATH}"
 echo "Checkpoint dir: ${CHECKPOINT_DIR}"
+echo "Device: ${DEVICE}"
 echo "Evaluation split: ${EVAL_SPLIT}"
 echo "Result dir: ${RESULT_DIR}"
 echo "Visualization dir: ${VIS_DIR}"
@@ -111,6 +114,11 @@ if [[ -n "${CONDITION}" ]]; then
   CONDITION_ARGS=(--condition "${CONDITION}")
 fi
 
+DEVICE_ARGS=()
+if [[ -n "${DEVICE}" ]]; then
+  DEVICE_ARGS=(--device "${DEVICE}")
+fi
+
 ANALYZE_CONDITION="${CONDITION}"
 if [[ -z "${ANALYZE_CONDITION}" ]]; then
   ANALYZE_CONDITION="none"
@@ -123,6 +131,7 @@ echo "============================================================"
 python -m awseg.train \
   --config "${CONFIG_PATH}" \
   --result-dir "${RESULT_DIR}" \
+  "${DEVICE_ARGS[@]}" \
   "${CONDITION_ARGS[@]}"
 
 echo ""
@@ -135,6 +144,7 @@ python -m awseg.evaluate \
   --checkpoint "${CHECKPOINT_PATH}" \
   --split "${EVAL_SPLIT}" \
   --result-dir "${RESULT_DIR}" \
+  "${DEVICE_ARGS[@]}" \
   "${CONDITION_ARGS[@]}"
 
 echo ""
@@ -147,6 +157,7 @@ python -m awseg.visualize \
   --checkpoint "${CHECKPOINT_PATH}" \
   --split "${EVAL_SPLIT}" \
   --output-dir "${VIS_DIR}" \
+  "${DEVICE_ARGS[@]}" \
   --samples-per-condition "${SAMPLES_PER_CONDITION}" \
   --shuffle \
   --seed "${VIS_SEED}" \
@@ -162,7 +173,8 @@ python scripts/analyze_errors.py \
   --condition "${ANALYZE_CONDITION}" \
   --config "${CONFIG_PATH}" \
   --checkpoint "${CHECKPOINT_PATH}" \
-  --output-dir "${ANALYSIS_DIR}"
+  --output-dir "${ANALYSIS_DIR}" \
+  "${DEVICE_ARGS[@]}"
 
 echo ""
 echo "============================================================"
