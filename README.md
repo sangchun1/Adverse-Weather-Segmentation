@@ -12,15 +12,110 @@
 
 ```text
 Adverse-Weather-Segmentation/
-├── configs/                   # 실행 하이퍼파라미터 설정 디렉토리
-│   ├── baseline.yaml               # 공통 baseline 설정
-│   ├── fog.yaml                    # fog 실험 설정 (규영)
-│   ├── night.yaml                  # night 실험 설정 (상춘)
-│   ├── rain.yaml                   # rain 실험 설정 (현민)
-│   └── snow.yaml                   # snow 실험 설정 (경민)
+├── configs/
+│   ├── baseline.yaml
+│   ├── proposed.yaml
+│   │
+│   ├── loss/
+│   │   ├── ce.yaml
+│   │   ├── dice.yaml
+│   │   ├── focal.yaml
+│   │   ├── tversky.yaml
+│   │   ├── focal_tversky.yaml
+│   │   ├── ce_dice.yaml
+│   │   ├── ce_tversky.yaml
+│   │   ├── ce_lovasz.yaml
+│   │   ├── ohem_tversky.yaml
+│   │   ├── tversky_lovasz.yaml
+│   │   ├── ce_focal_dice.yaml
+│   │   └── ce_focal_tversky.yaml
+│   │
+│   ├── model/
+│   │   ├── unet.yaml
+│   │   └── segformer.yaml
+│   │
+│   ├── augmentation/
+│   │   ├── none.yaml
+│   │   ├── flip.yaml
+│   │   ├── jitter.yaml
+│   │   ├── class_crop.yaml
+│   │   ├── weather_fog.yaml
+│   │   ├── weather_rain.yaml
+│   │   ├── weather_snow.yaml
+│   │   ├── weather_night.yaml
+│   │   ├── weather_mixed.yaml
+│   │   └── all.yaml
+│   │
+│   └── enhancement/
+│       ├── none.yaml
+│       ├── gamma.yaml
+│       ├── clahe.yaml
+│       └── gamma_clahe.yaml
 │
-├── data/                      # 데이터 디렉토리
-│   ├── raw/                        # ACDC 원본 데이터 (GitHub에 안 올라감)
+├── scripts/
+│   ├── prepare_dataset.py
+│   ├── colab_run_loss.ipynb
+│   ├── colab_run_augmentation.ipynb
+│   ├── run_model.sh
+│   ├── run_enhancement.sh
+│   ├── run_proposed.sh
+│   ├── colab_run_proposed.ipynb
+│   ├── run_baseline.sh
+│   ├── colab_run_baseline.ipynb
+│   ├── analyze_errors.py
+│   ├── plot_results.py
+│   └── tune_segformer.py
+│
+├── src/
+│   └── awseg/
+│       ├── __init__.py
+│       ├── dataset.py
+│       ├── train.py
+│       ├── evaluate.py
+│       ├── metrics.py
+│       ├── utils.py
+│       │
+│       ├── models/
+│       │   ├── __init__.py
+│       │   ├── builder.py
+│       │   ├── unet.py
+│       │   └── segformer.py
+│       │
+│       ├── losses/
+│       │   ├── __init__.py
+│       │   ├── builder.py
+│       │   ├── cross_entropy.py
+│       │   ├── dice.py
+│       │   ├── focal.py
+│       │   ├── tversky.py
+│       │   ├── lovasz.py
+│       │   ├── ohem.py
+│       │   └── hybrid.py
+│       │
+│       └── transforms/
+│           ├── __init__.py
+│           ├── transform.py
+│           ├── enhancement.py
+│           ├── augmentation.py
+│           └── weather_augmentation.py
+│
+├── outputs/
+|   ├── results/
+|   |   ├── baseline/
+|   |   ├── loss/
+|   |   ├── model/
+|   |   ├── augmentation/
+|   |   ├── enhancement/
+|   |   └── proposed/
+|   |
+│   ├── analysis/
+│   ├── checkpoints/                
+│   ├── logs/                                       
+│   ├── visualizations/             
+│   └── wandb/                      
+│
+├── data/
+│   ├── raw/                       
 │   |   ├── rgb_anon/
 |   |   |   ├── fog/
 |   |   |   |   ├── train/
@@ -41,33 +136,14 @@ Adverse-Weather-Segmentation/
 |   |       ├── rain/
 |   |       └── snow/
 |   |
-│   └── splits/                     # 이미지 파일들 경로를 정리해놓은 csv
+│   └── splits/                     
 │       ├── train.csv          
 │       ├── val.csv            
-│       └── test.csv           
+│       └── test.csv 
 │
-├── outputs/                   # 아웃풋 디렉토리 (결과, 체크포인트, 시각화 등)
-│   ├── checkpoints/                # 모델 checkpoint (GitHub에 안 올라감)
-│   ├── logs/                       # 실행 로그 (GitHub에 안 올라감)
-|   ├── results/                    # 실행 결과
-│   ├── visualizations/             # 예측 시각화 결과
-│   └── wandb/                      # wandb 로그 (GitHub에 안 올라감)
-│
-├── scripts/                   # 실행 코드 디렉토리
-│   ├── prepare_dataset.py          # ACDC 원본 데이터에서 split CSV 생성
-│   └── run_baseline.sh             # baseline 학습/평가/시각화 실행
-│
-└── src/awseg/                 # 핵심 코드 디렉토리
-    ├── dataset.py                  # ACDC dataset loader
-    ├── train.py                    # 학습 스크립트
-    ├── evaluate.py                 # 평가 스크립트
-    ├── visualize.py                # 예측 결과 시각화
-    ├── metrics.py                  # mIoU, class IoU 계산
-    ├── utils.py                    # seed, config, checkpoint 유틸
-    ├── logger.py                   # wandb 로그 작성
-    ├── models/                     # 모델 코드 (현민)
-    ├── losses/                     # loss 코드 (규영)
-    └── transforms/                 # transform 및 augmentation 코드 (경민&상춘)
+├── pyproject.toml
+├── README.md
+└── .gitignore
 ```
 
 ## 3. 데이터셋 준비
