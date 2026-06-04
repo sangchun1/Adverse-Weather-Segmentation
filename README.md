@@ -35,6 +35,7 @@ Adverse-Weather-Segmentation/
 │   │   └── segformer.yaml
 │   │
 │   ├── augmentation/
+│   │   ├── none.yaml
 │   │   ├── flip.yaml
 │   │   ├── jitter.yaml
 │   │   ├── class_crop.yaml
@@ -46,6 +47,7 @@ Adverse-Weather-Segmentation/
 │   │   └── all.yaml
 │   │
 │   └── enhancement/
+│       ├── none.yaml
 │       ├── gamma.yaml
 │       ├── clahe.yaml
 │       └── gamma_clahe.yaml
@@ -61,9 +63,7 @@ Adverse-Weather-Segmentation/
 │   ├── run_baseline.sh
 │   ├── colab_run_baseline.ipynb
 │   ├── analyze_errors.py
-│   ├── colab_analyze_errors.ipynb
 │   ├── plot_results.py
-│   ├── colab_plot_results.ipynb
 │   └── tune_segformer.py
 │
 ├── src/
