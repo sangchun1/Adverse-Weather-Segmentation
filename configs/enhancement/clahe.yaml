@@ -1,0 +1,16 @@
+experiment:
+  name: enhancement_clahe
+  group: enhancement
+
+enhancement:
+  enabled: true
+  name: clahe
+
+  clip_limit: 2.0
+  tile_grid_size: [8, 8]
+
+  # lab, hsv, ycrcb 중 선택 가능
+  color_space: lab
+
+  apply_to: all
+  apply_conditions: ["night"]

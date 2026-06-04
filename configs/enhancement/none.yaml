@@ -1,0 +1,10 @@
+experiment:
+  name: enhancement_none
+  group: enhancement
+
+enhancement:
+  enabled: false
+  name: none
+
+  apply_to: all
+  apply_conditions: all

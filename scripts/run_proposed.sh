@@ -3,35 +3,35 @@
 set -euo pipefail
 
 # Usage:
-#   bash scripts/run_baseline.sh
-#   bash scripts/run_baseline.sh configs/baseline.yaml
-#   bash scripts/run_baseline.sh configs/baseline.yaml fog
-#   CONDITION=fog bash scripts/run_baseline.sh
+#   bash scripts/run_proposed.sh
+#   bash scripts/run_proposed.sh configs/proposed.yaml
+#   bash scripts/run_proposed.sh configs/proposed.yaml fog
+#   CONDITION=fog bash scripts/run_proposed.sh
 #
 # If CONDITION is empty, all weather conditions are used.
 # If CONDITION is set to fog/rain/snow/night, train/evaluate/visualize/analyze use only that condition.
 #
 # Output structure:
-#   outputs/logs/baseline_YYYYMMDD_HHMMSS.log
-#   outputs/results/baseline/
-#   outputs/visualizations/baseline/
-#   outputs/analysis/baseline/
+#   outputs/logs/proposed_YYYYMMDD_HHMMSS.log
+#   outputs/results/proposed/
+#   outputs/visualizations/proposed/
+#   outputs/analysis/proposed/
 #
 # If condition is given:
-#   outputs/logs/baseline_fog_YYYYMMDD_HHMMSS.log
-#   outputs/results/baseline_fog/
-#   outputs/visualizations/baseline_fog/
-#   outputs/analysis/baseline_fog/
+#   outputs/logs/proposed_fog_YYYYMMDD_HHMMSS.log
+#   outputs/results/proposed_fog/
+#   outputs/visualizations/proposed_fog/
+#   outputs/analysis/proposed_fog/
 
-CONFIG_PATH="${1:-configs/baseline.yaml}"
+CONFIG_PATH="${1:-configs/proposed.yaml}"
 CONDITION="${2:-${CONDITION:-}}"
 
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
 
 if [[ -n "${CONDITION}" ]]; then
-  EXPERIMENT_NAME="baseline_${CONDITION}"
+  EXPERIMENT_NAME="proposed_${CONDITION}"
 else
-  EXPERIMENT_NAME="baseline"
+  EXPERIMENT_NAME="proposed"
 fi
 
 LOG_RUN_NAME="${EXPERIMENT_NAME}_${TIMESTAMP}"
@@ -57,7 +57,7 @@ with config_path.open("r", encoding="utf-8") as f:
     cfg = yaml.safe_load(f)
 
 ckpt_cfg = cfg.get("checkpoint", {})
-save_dir = ckpt_cfg.get("save_dir", "outputs/checkpoints/baseline")
+save_dir = ckpt_cfg.get("save_dir", "outputs/checkpoints/proposed")
 save_best_name = ckpt_cfg.get("save_best_name", "best_miou.pth")
 
 print(str(Path(save_dir) / save_best_name))
@@ -83,7 +83,7 @@ export ANALYSIS_DIR
 export SAMPLES_PER_CONDITION
 export VIS_SEED
 
-echo "Starting baseline pipeline with nohup..."
+echo "Starting proposed pipeline with nohup..."
 echo "Config: ${CONFIG_PATH}"
 echo "Experiment: ${EXPERIMENT_NAME}"
 
@@ -95,7 +95,6 @@ fi
 
 echo "Log file: ${LOG_FILE}"
 echo "Checkpoint: ${CHECKPOINT_PATH}"
-echo "Checkpoint dir: ${CHECKPOINT_DIR}"
 echo "Evaluation split: ${EVAL_SPLIT}"
 echo "Result dir: ${RESULT_DIR}"
 echo "Visualization dir: ${VIS_DIR}"
@@ -117,7 +116,7 @@ if [[ -z "${ANALYZE_CONDITION}" ]]; then
 fi
 
 echo "============================================================"
-echo "[1/5] Training baseline model"
+echo "[1/5] Training proposed model"
 echo "============================================================"
 
 python -m awseg.train \
@@ -158,7 +157,7 @@ echo "[4/5] Running error analysis"
 echo "============================================================"
 
 python scripts/analyze_errors.py \
-  --group baseline \
+  --group proposed \
   --condition "${ANALYZE_CONDITION}" \
   --config "${CONFIG_PATH}" \
   --checkpoint "${CHECKPOINT_PATH}" \
@@ -166,16 +165,16 @@ python scripts/analyze_errors.py \
 
 echo ""
 echo "============================================================"
-echo "[5/5] Plotting baseline results"
+echo "[5/5] Plotting proposed results"
 echo "============================================================"
 
 python scripts/plot_results.py \
-  --group baseline \
+  --group proposed \
   --output-dir "${VIS_DIR}/plots"
 
 echo ""
 echo "============================================================"
-echo "Baseline pipeline finished successfully."
+echo "Proposed pipeline finished successfully."
 echo "Best checkpoint: ${CHECKPOINT_PATH}"
 echo "Result dir: ${RESULT_DIR}"
 echo "Visualization dir: ${VIS_DIR}"

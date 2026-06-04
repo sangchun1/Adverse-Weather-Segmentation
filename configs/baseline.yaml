@@ -1,5 +1,12 @@
 # 베이스라인 설정
 # Model: U-Net from scratch
+# Loss: CrossEntropyLoss
+# Augmentation: none
+# Enhancement: none
+
+experiment:
+  name: baseline
+  group: baseline
 
 seed: 42
 
@@ -48,6 +55,7 @@ model:
 
 loss:
   name: "cross_entropy"
+  ignore_index: 255
 
 optimizer:
   name: "adamw"
@@ -73,9 +81,31 @@ augmentation:
   enabled: false
   name: "none"
 
+  basic:
+    horizontal_flip:
+      enabled: false
+      prob: 0.0
+
+    color_jitter:
+      enabled: false
+      prob: 0.0
+
+    class_balanced_crop:
+      enabled: false
+      prob: 0.0
+      rare_classes: []
+      min_pixels: 0
+
+  weather:
+    enabled: false
+    mode: "none"
+    total_prob: 0.0
+
 enhancement:
   enabled: false
   name: "none"
+  apply_to: "all"
+  apply_conditions: "all"
 
 checkpoint:
   save_dir: "outputs/checkpoints/baseline"
@@ -107,4 +137,10 @@ evaluate:
   batch_size: 8
   num_workers: 4
   save_predictions: false
-  output_dir: "outputs/checkpoints/baseline"
+  output_dir: "outputs/results/baseline"
+
+output:
+  checkpoint_dir: "outputs/checkpoints/baseline"
+  result_dir: "outputs/results/baseline"
+  log_dir: "outputs/logs/baseline"
+  visualization_dir: "outputs/visualizations/baseline"
