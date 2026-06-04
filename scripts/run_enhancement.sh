@@ -3,17 +3,27 @@ set -euo pipefail
 
 # Usage:
 #   bash scripts/run_enhancement.sh
-#   bash scripts/run_enhancement.sh configs/all_enhance.yaml
-#   bash scripts/run_enhancement.sh configs/all_night_enhance.yaml
-#   bash scripts/run_enhancement.sh configs/all_enhance.yaml all_gamma
+#   bash scripts/run_enhancement.sh configs/enhance.yaml
+#   bash scripts/run_enhancement.sh configs/enhance_night_only.yaml
+#   bash scripts/run_enhancement.sh configs/enhance.yaml enhance_gamma
+#   bash scripts/run_enhancement.sh configs/enhance_night_only.yaml enhance_night_only_gamma
 #
 # Notes:
 #   - This script is for all-condition enhancement experiments.
 #   - It does NOT pass --condition.
 #   - Therefore train/evaluate/visualize use all conditions from data/splits.
+#   - Enhancement scope is controlled by YAML:
+#       apply_conditions: "all"
+#       apply_conditions: ["night"]
 #   - Edit the selected YAML to switch gamma <-> clahe.
 
-CONFIG_PATH="${1:-configs/all_enhance.yaml}"
+CONFIG_PATH="${1:-configs/enhance.yaml}"
+EXPERIMENT_NAME_ARG="${2:-}"
+
+if [[ ! -f "${CONFIG_PATH}" ]]; then
+  echo "[ERROR] Config file not found: ${CONFIG_PATH}"
+  exit 1
+fi
 
 EXPERIMENT_NAME="$(
 python - <<PY
@@ -21,14 +31,16 @@ import yaml
 from pathlib import Path
 
 config_path = Path("${CONFIG_PATH}")
+experiment_name_arg = "${EXPERIMENT_NAME_ARG}"
+
 with config_path.open("r", encoding="utf-8") as f:
     cfg = yaml.safe_load(f)
 
-if len("${2:-}") > 0:
-    print("${2:-}")
+if experiment_name_arg:
+    print(experiment_name_arg)
 else:
     ckpt_cfg = cfg.get("checkpoint", {})
-    save_dir = ckpt_cfg.get("save_dir", "outputs/checkpoints/all_enhance")
+    save_dir = ckpt_cfg.get("save_dir", "outputs/checkpoints/enhance")
     print(Path(save_dir).name)
 PY
 )"
@@ -52,11 +64,12 @@ import yaml
 from pathlib import Path
 
 config_path = Path("${CONFIG_PATH}")
+
 with config_path.open("r", encoding="utf-8") as f:
     cfg = yaml.safe_load(f)
 
 ckpt_cfg = cfg.get("checkpoint", {})
-save_dir = ckpt_cfg.get("save_dir", "outputs/checkpoints/all_enhance")
+save_dir = ckpt_cfg.get("save_dir", "outputs/checkpoints/enhance")
 save_best_name = ckpt_cfg.get("save_best_name", "best_miou.pth")
 
 print(str(Path(save_dir) / save_best_name))
@@ -69,11 +82,12 @@ import yaml
 from pathlib import Path
 
 config_path = Path("${CONFIG_PATH}")
+
 with config_path.open("r", encoding="utf-8") as f:
     cfg = yaml.safe_load(f)
 
 eval_cfg = cfg.get("evaluate", {})
-output_dir = eval_cfg.get("output_dir", f"outputs/results/${EXPERIMENT_NAME}")
+output_dir = eval_cfg.get("output_dir", "outputs/results/${EXPERIMENT_NAME}")
 
 print(str(Path(output_dir)))
 PY
@@ -96,7 +110,7 @@ export SAMPLES_PER_CONDITION
 export VIS_SEED
 export SAVE_PREDICTIONS
 
-echo "Starting all-condition enhancement pipeline with nohup..."
+echo "Starting enhancement pipeline with nohup..."
 echo "Config: ${CONFIG_PATH}"
 echo "Experiment: ${EXPERIMENT_NAME}"
 echo "Condition: all"
@@ -108,12 +122,16 @@ echo "Visualization dir: ${VIS_DIR}"
 echo "Samples per condition: ${SAMPLES_PER_CONDITION}"
 echo "Visualization seed: ${VIS_SEED}"
 echo "Save predictions: ${SAVE_PREDICTIONS}"
+echo ""
+echo "Note: This script does NOT pass --condition."
+echo "      All train/val/test samples from data/splits are used."
+echo "      Enhancement scope is controlled by enhancement.apply_conditions in YAML."
 
 nohup bash -c '
 set -euo pipefail
 
 echo "============================================================"
-echo "[1/3] Training all-condition enhancement model"
+echo "[1/3] Training enhancement model on all conditions"
 echo "============================================================"
 
 python -m awseg.train \
@@ -153,7 +171,7 @@ python -m awseg.visualize \
 
 echo ""
 echo "============================================================"
-echo "All-condition enhancement pipeline finished successfully."
+echo "Enhancement pipeline finished successfully."
 echo "Best checkpoint: ${CHECKPOINT_PATH}"
 echo "Result dir: ${RESULT_DIR}"
 echo "Visualization dir: ${VIS_DIR}"
