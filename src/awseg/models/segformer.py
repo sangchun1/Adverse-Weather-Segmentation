@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 import torch
 import torch.nn as nn
@@ -8,31 +8,22 @@ import torch.nn.functional as F
 from transformers import SegformerConfig, SegformerForSemanticSegmentation
 
 
-# encoder 4개 stage 중 freeze 변화
-#   A. full       : freeze 없음         
-#   B. freeze_s1  : stage 1 freeze
-#   C. freeze_s12 : stage 1, 2 freeze
-#   D. head_only  : encoder 전체 freeze, decode head 만 학습
-FREEZE_MODES: Dict[str, List[int]] = {
-    "full": [],
-    "freeze_s1": [0],
-    "freeze_s12": [0, 1],
-    "head_only": [0, 1, 2, 3],
-}
-
-
 class SegFormerWrapper(nn.Module):
 
     def __init__(
-        self,
-        pretrained_name: str = "nvidia/segformer-b2-finetuned-cityscapes-1024-1024",
-        num_classes: int = 19,
-        dropout: Optional[float] = None,
-        drop_path_rate: Optional[float] = None,
-        freeze_mode: str = "full",  #
-        train_norm_when_frozen: bool = False, #
-        align_corners: bool = False, 
-    ) -> None:
+    self,
+    pretrained_name: str = "nvidia/segformer-b2-finetuned-cityscapes-1024-1024",
+    num_classes: int = 19,
+    freeze_stages: int = 0,
+    classifier_dropout_prob: Optional[float] = None,
+    drop_path_rate: Optional[float] = None,
+    use_lora: bool = False,
+    lora_r: int = 8,
+    lora_alpha: int = 16,
+    lora_dropout: float = 0.05,
+    align_corners: bool = False,
+) -> None:
+        
         super().__init__()
 
         self.num_classes = int(num_classes)
@@ -40,9 +31,8 @@ class SegFormerWrapper(nn.Module):
 
         # regularization
         hf_config = SegformerConfig.from_pretrained(pretrained_name)
-        if dropout is not None:
-            hf_config.hidden_dropout_prob = float(dropout)
-            hf_config.classifier_dropout_prob = float(dropout)
+        if classifier_dropout_prob is not None:
+            hf_config.classifier_dropout_prob = float(classifier_dropout_prob)
         if drop_path_rate is not None:
             hf_config.drop_path_rate = float(drop_path_rate)
 
@@ -59,50 +49,44 @@ class SegFormerWrapper(nn.Module):
         if not same_num_labels:
             self.model.config.num_labels = self.num_classes
 
+        # LoRA
+        if self.use_lora:
+            self._apply_lora(lora_r, lora_alpha, lora_dropout)
+
         # freeze
-        if freeze_mode not in FREEZE_MODES:
-            raise ValueError(
-                f"Unknown freeze_mode: {freeze_mode}. "
-                f"Choose from {list(FREEZE_MODES)}"
-            )
-        self.freeze_mode = freeze_mode
-        self.train_norm_when_frozen = bool(train_norm_when_frozen)
-        self._apply_freeze(FREEZE_MODES[freeze_mode], self.train_norm_when_frozen)
+        if not 0 <= int(freeze_stages) <= 4:
+            raise ValueError(f"freeze_stages must be in [0, 4], got {freeze_stages}")
+        self.freeze_stages = int(freeze_stages)
+        self._apply_freeze(self.freeze_stages)
 
 
     def _get_stages(self) -> List[nn.Module]: 
 
-        seg = self.model.segformer
-        if hasattr(seg, "stages"): 
-            return list(seg.stages)
-
-        enc = seg.encoder
+        enc = self.model.segformer.encoder
         n = len(enc.patch_embeddings)
-        stages = []
-        for i in range(n):
-            stages.append(
-                nn.ModuleList([enc.patch_embeddings[i], enc.block[i], enc.layer_norm[i]])
-            )
-        return stages
-
-    def _apply_freeze(self, stages_to_freeze: List[int], train_norm: bool) -> None:
-        stages = self._get_stages()
-
-        for s in stages_to_freeze:
-            stage = stages[s]
+        return [
+            nn.ModuleList([enc.patch_embeddings[i], enc.block[i], enc.layer_norm[i]])
+            for i in range(n)
+        ]
+    
+    def _apply_freeze(self, freeze_stages: int) -> None:
+        for stage in self._get_stages()[:freeze_stages]:     # 앞에서 N개
             for p in stage.parameters():
                 p.requires_grad = False
-
-            # stage 는 freeze 하고 LayerNorm만 학습
-            if train_norm:
-                for m in stage.modules():
-                    if isinstance(m, nn.LayerNorm):
-                        for p in m.parameters():
-                            p.requires_grad = True
-
-        # decoder head 학습
         for p in self.model.decode_head.parameters():
             p.requires_grad = True
+    
+    def _apply_lora(self, r: int, alpha: int, dropout: float) -> None:
+        from peft import LoraConfig, get_peft_model
+ 
+        lora_cfg = LoraConfig(
+            r=r,
+            lora_alpha=alpha,
+            lora_dropout=dropout,
+            target_modules=["query", "key", "value"],
+            bias="none",
+        )
+        self.model = get_peft_model(self.model, lora_cfg)
 
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -118,19 +102,29 @@ class SegFormerWrapper(nn.Module):
         return logits 
 
 
-    def param_groups(self, encoder_lr: float, head_lr: float, weight_decay: float): #
+    def param_groups(
+        self,
+        base_lr: float,
+        encoder_lr_mult: float = 1.0,
+        head_lr_mult: float = 1.0,
+        weight_decay: float = 1e-2,
+    ):
+        """Build optimizer param groups with separate encoder/head LR and
+        no weight-decay on 1-D params (norm weights / biases)."""
+        encoder_lr = base_lr * encoder_lr_mult
+        head_lr = base_lr * head_lr_mult
+ 
         enc_decay, enc_nodecay, head_decay, head_nodecay = [], [], [], []
-
         for name, p in self.model.named_parameters():
             if not p.requires_grad:
                 continue
-            is_head = name.startswith("decode_head")
+            is_head = "decode_head" in name
             no_decay = (p.ndim == 1) or name.endswith(".bias")
             if is_head:
                 (head_nodecay if no_decay else head_decay).append(p)
             else:
                 (enc_nodecay if no_decay else enc_decay).append(p)
-
+ 
         groups = []
         if enc_decay:
             groups.append({"params": enc_decay, "lr": encoder_lr, "weight_decay": weight_decay})

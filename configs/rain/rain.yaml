@@ -60,7 +60,7 @@ scheduler:
   min_factor: 0.0
 train:
   epochs: 100
-  batch_size: 2 #나중에 4로 다시 조절    
+  batch_size: 4
   num_workers: 4 
   pin_memory: true
   amp: true
@@ -68,7 +68,7 @@ train:
   log_interval: 20
   val_interval: 1
 checkpoint:
-  save_dir: "outputs/rain_checkpoints/segformer"
+  save_dir: "outputs/rain/rain_checkpoints/segformer"
   save_best_name: "best_miou.pth"
   save_last_name: "last.pth"
   monitor: "val_miou"
@@ -94,7 +94,7 @@ wandb:
   notes: "SegFormer-b2 full fine-tuning baseline on ACDC rain, 1024x512, CE loss, poly schedule."
   dir: "outputs"
 evaluate:
-  batch_size: 2 #니중에 4로 다시 조절
+  batch_size: 4
   num_workers: 4
   save_predictions: false
   output_dir: "outputs/results/rain/segformer_rain"
