@@ -17,12 +17,20 @@ from awseg.models import build_model
 from awseg.utils import format_metrics, get_device, load_config
 
 
+CONDITIONS = ["fog", "rain", "snow", "night"]
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Evaluate semantic segmentation model.")
     parser.add_argument("--config", type=str, default="configs/baseline.yaml")
     parser.add_argument("--checkpoint", type=str, required=True)
     parser.add_argument("--split", type=str, default="val", help="Main split: train, val, or test.")
     parser.add_argument("--condition", type=str, default=None, help="Optional filter: fog, rain, snow, night.")
+    parser.add_argument(
+        "--all-conditions",
+        action="store_true",
+        help="Evaluate overall and every weather condition into one JSON file.",
+    )
     parser.add_argument("--batch-size", type=int, default=None)
     parser.add_argument("--normal-split", type=str, default="normal")
     parser.add_argument("--include-normal", dest="include_normal", action="store_true", default=True)
@@ -112,7 +120,7 @@ def filter_dataset_by_split_column(
     dataset: Any,
     target_split: str,
     require_label: bool = True,
-    source_condition = "snow", # snow 같은장소 맑은 날만 평가
+    condition: str | None = None,
 ) -> Subset:
     indices = []
 
@@ -123,11 +131,10 @@ def filter_dataset_by_split_column(
         if require_label and not str(sample.get("label_path", "")).strip():
             continue
 
-        # normal 경로에서도 해당 날씨 폴더에 속한 것만 남김
-        if source_condition is not None:
+        if condition is not None:
             image_path = str(sample.get("image_path", "")).replace("\\", "/")
             label_path = str(sample.get("label_path", "")).replace("\\", "/")
-            token = f"/{source_condition}/"
+            token = f"/{condition}/"
 
             if token not in image_path and token not in label_path:
                 continue
@@ -151,11 +158,16 @@ def build_eval_dataloader(
     batch_size: int | None = None,
     condition: str | None = None,
     csv_split_filter: str | None = None,
+    normal_condition: str | None = None,
 ) -> DataLoader:
     dataset = build_dataset(config, split=split)
 
     if csv_split_filter is not None:
-        dataset = filter_dataset_by_split_column(dataset, target_split=csv_split_filter)
+        dataset = filter_dataset_by_split_column(
+            dataset,
+            target_split=csv_split_filter,
+            condition=normal_condition,
+        )
 
     if condition is not None:
         dataset = filter_dataset_by_condition(dataset, condition=condition, split=split)
@@ -190,12 +202,23 @@ def load_model_checkpoint(
     return {"model_state_dict": checkpoint}
 
 
+def infer_ref_condition(path: str) -> str:
+    normalized_path = str(path).replace("\\", "/")
+
+    for condition in CONDITIONS:
+        if f"/{condition}/" in normalized_path:
+            return f"{condition}_ref"
+
+    return "normal_ref"
+
+
 @torch.no_grad()
 def evaluate_split(
     model: torch.nn.Module,
     dataloader: DataLoader,
     device: torch.device,
     config: Dict[str, Any],
+    normal_ref_conditions: bool = False,
 ) -> Dict[str, Any]:
     model.eval()
 
@@ -219,6 +242,10 @@ def evaluate_split(
         images = batch["image"].to(device, non_blocking=True)
         masks = batch["mask"].to(device, non_blocking=True)
         conditions = batch.get("condition", ["unknown"] * images.size(0))
+
+        if normal_ref_conditions:
+            image_paths = batch.get("image_path", [""] * images.size(0))
+            conditions = [infer_ref_condition(path) for path in image_paths]
 
         logits = model(images)
         preds = torch.argmax(logits, dim=1)
@@ -264,21 +291,47 @@ def make_split_summary(
     class_names: list[str],
     source_csv: str,
     csv_split_filter: str | None = None,
+    is_normal_ref: bool = False,
 ) -> Dict[str, Any]:
     class_iou = {
         class_name: iou
         for class_name, iou in zip(class_names, result["class_iou"])
     }
 
+    summary_condition = condition
+    condition_results = result["condition_results"]
+
+    if is_normal_ref:
+        if condition is not None:
+            summary_condition = f"{condition}_ref"
+
+            if set(condition_results.keys()) == {"normal"}:
+                condition_results = {
+                    summary_condition: condition_results["normal"],
+                }
+
     return {
         "split": split,
-        "condition": condition,
+        "condition": summary_condition,
         "source_csv": source_csv,
         "csv_split_filter": csv_split_filter,
         "num_samples": int(len(dataloader.dataset)),
         "miou": float(result["miou"]),
         "class_iou": class_iou,
-        "condition_results": result["condition_results"],
+        "condition_results": condition_results,
+    }
+
+
+def make_comparison(
+    main_summary: Dict[str, Any],
+    normal_summary: Dict[str, Any] | None,
+) -> Dict[str, float] | None:
+    if normal_summary is None:
+        return None
+
+    return {
+        "normal_minus_main_miou": float(normal_summary["miou"] - main_summary["miou"]),
+        "main_minus_normal_miou": float(main_summary["miou"] - normal_summary["miou"]),
     }
 
 
@@ -317,6 +370,95 @@ def print_split_result(title: str, summary: Dict[str, Any], class_names: list[st
             )
 
 
+def evaluate_pair(
+    model: torch.nn.Module,
+    device: torch.device,
+    config: Dict[str, Any],
+    class_names: list[str],
+    split: str,
+    batch_size: int | None,
+    condition: str | None,
+    normal_split: str,
+    include_normal: bool,
+) -> tuple[Dict[str, Any], Dict[str, Any] | None, Dict[str, float] | None]:
+    main_loader = build_eval_dataloader(
+        config=config,
+        split=split,
+        batch_size=batch_size,
+        condition=condition,
+        csv_split_filter=None,
+    )
+
+    print(f"Evaluating main split: {split}")
+
+    if condition is not None:
+        print(f"Condition filter: {condition}")
+
+    print(f"Samples: {len(main_loader.dataset)}")
+
+    main_result = evaluate_split(
+        model=model,
+        dataloader=main_loader,
+        device=device,
+        config=config,
+    )
+    main_summary = make_split_summary(
+        split=split,
+        condition=condition,
+        dataloader=main_loader,
+        result=main_result,
+        class_names=class_names,
+        source_csv=f"{split}.csv",
+    )
+    print_split_result("Main evaluation", main_summary, class_names)
+
+    normal_summary = None
+
+    if include_normal and split_csv_exists(config, normal_split):
+        normal_loader = build_eval_dataloader(
+            config=config,
+            split=normal_split,
+            batch_size=batch_size,
+            condition=None,
+            csv_split_filter=split,
+            normal_condition=condition,
+        )
+
+        print()
+        print(f"Evaluating normal comparison from {normal_split}.csv")
+        print(f"Normal CSV split filter: {split}")
+
+        if condition is not None:
+            print(f"Normal condition filter: {condition}_ref")
+
+        print(f"Samples: {len(normal_loader.dataset)}")
+
+        normal_result = evaluate_split(
+            model=model,
+            dataloader=normal_loader,
+            device=device,
+            config=config,
+            normal_ref_conditions=True,
+        )
+        normal_summary = make_split_summary(
+            split=normal_split,
+            condition=condition,
+            dataloader=normal_loader,
+            result=normal_result,
+            class_names=class_names,
+            source_csv=f"{normal_split}.csv",
+            csv_split_filter=split,
+            is_normal_ref=True,
+        )
+        print_split_result("Normal-condition evaluation", normal_summary, class_names)
+
+    elif include_normal:
+        print(f"[WARN] data/splits/{normal_split}.csv not found. Skipping normal evaluation.")
+
+    comparison = make_comparison(main_summary, normal_summary)
+    return main_summary, normal_summary, comparison
+
+
 def main() -> None:
     args = parse_args()
 
@@ -336,74 +478,44 @@ def main() -> None:
 
     class_names = get_class_names()
 
-    main_loader = build_eval_dataloader(
+    top_level_condition = None if args.all_conditions else args.condition
+
+    main_summary, normal_summary, comparison = evaluate_pair(
+        model=model,
+        device=device,
         config=config,
+        class_names=class_names,
         split=args.split,
         batch_size=args.batch_size,
-        condition=args.condition,
-        csv_split_filter=None,
+        condition=top_level_condition,
+        normal_split=args.normal_split,
+        include_normal=args.include_normal,
     )
 
-    print(f"Evaluating main split: {args.split}")
+    per_condition = None
 
-    if args.condition is not None:
-        print(f"Condition filter: {args.condition}")
+    if args.all_conditions:
+        per_condition = {}
 
-    print(f"Samples: {len(main_loader.dataset)}")
-
-    main_result = evaluate_split(model=model, dataloader=main_loader, device=device, config=config)
-    main_summary = make_split_summary(
-        split=args.split,
-        condition=args.condition,
-        dataloader=main_loader,
-        result=main_result,
-        class_names=class_names,
-        source_csv=f"{args.split}.csv",
-    )
-    print_split_result("Main evaluation", main_summary, class_names)
-
-    normal_summary = None
-
-    if args.include_normal and split_csv_exists(config, args.normal_split):
-        normal_loader = build_eval_dataloader(
-            config=config,
-            split=args.normal_split,
-            batch_size=args.batch_size,
-            condition=None,
-            csv_split_filter=args.split,
-        )
-
-        print()
-        print(f"Evaluating normal comparison from {args.normal_split}.csv")
-        print(f"Normal CSV split filter: {args.split}")
-        print(f"Samples: {len(normal_loader.dataset)}")
-
-        normal_result = evaluate_split(
-            model=model,
-            dataloader=normal_loader,
-            device=device,
-            config=config,
-        )
-        normal_summary = make_split_summary(
-            split=args.normal_split,
-            condition=None,
-            dataloader=normal_loader,
-            result=normal_result,
-            class_names=class_names,
-            source_csv=f"{args.normal_split}.csv",
-            csv_split_filter=args.split,
-        )
-        print_split_result("Normal-condition evaluation", normal_summary, class_names)
-
-    elif args.include_normal:
-        print(f"[WARN] data/splits/{args.normal_split}.csv not found. Skipping normal evaluation.")
-
-    comparison = None
-    if normal_summary is not None:
-        comparison = {
-            "normal_minus_main_miou": float(normal_summary["miou"] - main_summary["miou"]),
-            "main_minus_normal_miou": float(main_summary["miou"] - normal_summary["miou"]),
-        }
+        for condition in CONDITIONS:
+            print()
+            print(f"Running per-condition evaluation: {condition}")
+            condition_main, condition_normal, condition_comparison = evaluate_pair(
+                model=model,
+                device=device,
+                config=config,
+                class_names=class_names,
+                split=args.split,
+                batch_size=args.batch_size,
+                condition=condition,
+                normal_split=args.normal_split,
+                include_normal=args.include_normal,
+            )
+            per_condition[condition] = {
+                "main": condition_main,
+                "normal": condition_normal,
+                "comparison": condition_comparison,
+            }
 
     output = {
         "task": "evaluate",
@@ -416,6 +528,9 @@ def main() -> None:
         "normal": normal_summary,
         "comparison": comparison,
     }
+
+    if per_condition is not None:
+        output["per_condition"] = per_condition
 
     if args.save_results:
         result_path = get_result_path(

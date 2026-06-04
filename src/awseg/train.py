@@ -33,6 +33,12 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Train semantic segmentation model.")
     parser.add_argument("--config", type=str, default="configs/baseline.yaml")
     parser.add_argument("--resume", type=str, default=None)
+    parser.add_argument(
+        "--train-source",
+        choices=["adverse", "normal"],
+        default="adverse",
+        help="Training data source. adverse uses train/val.csv; normal uses normal.csv ref images.",
+    )
     parser.add_argument("--condition", type=str, default=None, help="Optional filter: fog, rain, snow, night.")
     parser.add_argument("--include-normal", dest="include_normal", action="store_true", default=False)
     parser.add_argument("--no-include-normal", dest="include_normal", action="store_false")
@@ -75,8 +81,15 @@ def get_timestamp() -> str:
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
-def get_result_suffix(condition: str | None, include_normal: bool) -> str:
+def get_result_suffix(
+    condition: str | None,
+    include_normal: bool,
+    train_source: str = "adverse",
+) -> str:
     suffix = ""
+
+    if train_source != "adverse":
+        suffix += f"_{train_source}"
 
     if condition is not None:
         suffix += f"_{condition}"
@@ -126,6 +139,7 @@ def filter_dataset_by_split_column(
     dataset: Any,
     target_split: str,
     require_label: bool = True,
+    condition: str | None = None,
 ) -> Subset:
     indices = []
 
@@ -135,6 +149,14 @@ def filter_dataset_by_split_column(
 
         if require_label and not str(sample.get("label_path", "")).strip():
             continue
+
+        if condition is not None:
+            image_path = str(sample.get("image_path", "")).replace("\\", "/")
+            label_path = str(sample.get("label_path", "")).replace("\\", "/")
+            token = f"/{condition}/"
+
+            if token not in image_path and token not in label_path:
+                continue
 
         indices.append(idx)
 
@@ -155,7 +177,23 @@ def build_training_dataset(
     condition: str | None,
     include_normal: bool,
     normal_split: str,
+    train_source: str = "adverse",
 ) -> Any:
+    if train_source == "normal":
+        if not split_csv_exists(config, normal_split):
+            raise FileNotFoundError(f"data/splits/{normal_split}.csv not found.")
+
+        normal_dataset = build_dataset(config, split=normal_split)
+        return filter_dataset_by_split_column(
+            normal_dataset,
+            target_split=split,
+            require_label=True,
+            condition=condition,
+        )
+
+    if train_source != "adverse":
+        raise ValueError(f"Unknown train source: {train_source}")
+
     main_dataset = build_dataset(config, split=split)
 
     if condition is not None:
@@ -172,6 +210,7 @@ def build_training_dataset(
             normal_dataset,
             target_split=split,
             require_label=True,
+            condition=None,
         )
         datasets.append(normal_dataset)
 
@@ -188,6 +227,7 @@ def build_dataloader(
     condition: str | None = None,
     include_normal: bool = False,
     normal_split: str = "normal",
+    train_source: str = "adverse",
 ) -> DataLoader:
     dataset = build_training_dataset(
         config=config,
@@ -195,6 +235,7 @@ def build_dataloader(
         condition=condition,
         include_normal=include_normal,
         normal_split=normal_split,
+        train_source=train_source,
     )
 
     train_config = config["train"]
@@ -429,6 +470,7 @@ def main() -> None:
         condition=args.condition,
         include_normal=args.include_normal,
         normal_split=args.normal_split,
+        train_source=args.train_source,
     )
     val_loader = build_dataloader(
         config,
@@ -437,6 +479,7 @@ def main() -> None:
         condition=args.condition,
         include_normal=args.include_normal,
         normal_split=args.normal_split,
+        train_source=args.train_source,
     )
 
     model = build_model(config).to(device)
@@ -453,6 +496,7 @@ def main() -> None:
     class_names = get_class_names()
 
     print(f"Model: {config['model']['name']}")
+    print(f"Train source: {args.train_source}")
     if args.condition is not None:
         print(f"Condition filter: {args.condition}")
     print(f"Include normal data: {args.include_normal}")
@@ -506,7 +550,11 @@ def main() -> None:
     stopped_epoch = None
 
     result_dir = Path(args.result_dir)
-    result_suffix = get_result_suffix(args.condition, args.include_normal)
+    result_suffix = get_result_suffix(
+        args.condition,
+        args.include_normal,
+        train_source=args.train_source,
+    )
     train_summary_path = result_dir / f"train{result_suffix}.json"
     train_history_path = result_dir / f"train_history{result_suffix}.json"
 
@@ -593,6 +641,7 @@ def main() -> None:
                 "early_bad_epochs": early_bad_epochs,
                 "early_stopping": early_config,
                 "condition": args.condition,
+                "train_source": args.train_source,
                 "include_normal": args.include_normal,
                 "config": config,
             }
@@ -635,6 +684,7 @@ def main() -> None:
                 "task": "train",
                 "created_at": get_timestamp(),
                 "config_path": str(args.config),
+                "train_source": args.train_source,
                 "condition": args.condition,
                 "include_normal": args.include_normal,
                 "model": config.get("model", {}),
