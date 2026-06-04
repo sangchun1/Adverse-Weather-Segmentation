@@ -21,7 +21,6 @@ from awseg.utils import (
     ensure_dir,
     format_metrics,
     get_device,
-    get_lr,
     load_config,
     save_checkpoint,
     save_config,
@@ -33,40 +32,54 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Train semantic segmentation model.")
     parser.add_argument("--config", type=str, default="configs/baseline.yaml")
     parser.add_argument("--resume", type=str, default=None)
-    parser.add_argument("--condition", type=str, default=None, help="Optional filter: fog, rain, snow, night.")
-    parser.add_argument("--include-normal", dest="include_normal", action="store_true", default=False)
-    parser.add_argument("--no-include-normal", dest="include_normal", action="store_false")
+    parser.add_argument("--device", type=str, default=None, help="Device override, e.g. cuda:0 or cuda:1.")
+    parser.add_argument(
+        "--condition",
+        type=str,
+        default=None,
+        help="Optional filter: fog, rain, snow, night.",
+    )
+    parser.add_argument(
+        "--include-normal",
+        dest="include_normal",
+        action="store_true",
+        default=False,
+    )
+    parser.add_argument(
+        "--no-include-normal",
+        dest="include_normal",
+        action="store_false",
+    )
     parser.add_argument("--normal-split", type=str, default="normal")
     parser.add_argument("--result-dir", type=str, default="outputs/results/baseline")
-    parser.add_argument("--no-save-results", dest="save_results", action="store_false", default=True)
+    parser.add_argument(
+        "--no-save-results",
+        dest="save_results",
+        action="store_false",
+        default=True,
+    )
     return parser.parse_args()
 
 
 def _json_safe(value: Any) -> Any:
     if isinstance(value, dict):
         return {str(k): _json_safe(v) for k, v in value.items()}
-
     if isinstance(value, (list, tuple)):
         return [_json_safe(v) for v in value]
-
     if isinstance(value, torch.Tensor):
         return _json_safe(value.detach().cpu().tolist())
-
     if isinstance(value, float):
         if math.isnan(value) or math.isinf(value):
             return None
         return value
-
     if isinstance(value, Path):
         return str(value)
-
     return value
 
 
-def save_json(data: Dict[str, Any], path: str | Path) -> None:
+def save_json(data: Dict[str, Any] | list[Dict[str, Any]], path: str | Path) -> None:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-
     with path.open("w", encoding="utf-8") as f:
         json.dump(_json_safe(data), f, indent=2, ensure_ascii=False, allow_nan=False)
 
@@ -77,13 +90,10 @@ def get_timestamp() -> str:
 
 def get_result_suffix(condition: str | None, include_normal: bool) -> str:
     suffix = ""
-
     if condition is not None:
         suffix += f"_{condition}"
-
     if include_normal:
         suffix += "_include_normal"
-
     return suffix
 
 
@@ -91,17 +101,14 @@ def split_csv_exists(config: Dict[str, Any], split: str) -> bool:
     data_config = config["data"]
     root = Path(data_config.get("root", "."))
     split_dir = Path(data_config.get("split_dir", "data/splits"))
-
     if not split_dir.is_absolute():
         split_dir = root / split_dir
-
     return (split_dir / f"{split}.csv").exists()
 
 
 def get_available_conditions(dataset: Any) -> list[str]:
     if not hasattr(dataset, "samples"):
         return []
-
     return sorted({str(sample.get("condition", "unknown")) for sample in dataset.samples})
 
 
@@ -111,14 +118,15 @@ def filter_dataset_by_condition(dataset: Any, condition: str, split: str) -> Sub
         for idx, sample in enumerate(dataset.samples)
         if str(sample.get("condition", "unknown")) == condition
     ]
-
     if len(indices) == 0:
         raise ValueError(
             f"No samples found for condition={condition!r} in split={split!r}. "
             f"Available conditions: {get_available_conditions(dataset)}"
         )
-
-    print(f"Using condition filter for {split}: {condition} ({len(indices)} / {len(dataset)} samples)")
+    print(
+        f"Using condition filter for {split}: "
+        f"{condition} ({len(indices)} / {len(dataset)} samples)"
+    )
     return Subset(dataset, indices)
 
 
@@ -128,14 +136,11 @@ def filter_dataset_by_split_column(
     require_label: bool = True,
 ) -> Subset:
     indices = []
-
     for idx, sample in enumerate(dataset.samples):
         if str(sample.get("split", "")) != target_split:
             continue
-
         if require_label and not str(sample.get("label_path", "")).strip():
             continue
-
         indices.append(idx)
 
     if len(indices) == 0:
@@ -144,8 +149,10 @@ def filter_dataset_by_split_column(
             f"No normal samples found for split={target_split!r}. "
             f"Available split values in normal.csv: {available_splits}"
         )
-
-    print(f"Using normal split filter: split={target_split} ({len(indices)} / {len(dataset)} samples)")
+    print(
+        f"Using normal split filter: split={target_split} "
+        f"({len(indices)} / {len(dataset)} samples)"
+    )
     return Subset(dataset, indices)
 
 
@@ -157,16 +164,18 @@ def build_training_dataset(
     normal_split: str,
 ) -> Any:
     main_dataset = build_dataset(config, split=split)
-
     if condition is not None:
-        main_dataset = filter_dataset_by_condition(main_dataset, condition=condition, split=split)
+        main_dataset = filter_dataset_by_condition(
+            main_dataset,
+            condition=condition,
+            split=split,
+        )
 
     datasets = [main_dataset]
 
     if include_normal:
         if not split_csv_exists(config, normal_split):
             raise FileNotFoundError(f"data/splits/{normal_split}.csv not found.")
-
         normal_dataset = build_dataset(config, split=normal_split)
         normal_dataset = filter_dataset_by_split_column(
             normal_dataset,
@@ -177,7 +186,6 @@ def build_training_dataset(
 
     if len(datasets) == 1:
         return datasets[0]
-
     return ConcatDataset(datasets)
 
 
@@ -196,7 +204,6 @@ def build_dataloader(
         include_normal=include_normal,
         normal_split=normal_split,
     )
-
     train_config = config["train"]
     batch_size = int(train_config["batch_size"])
     num_workers = int(train_config.get("num_workers", 4))
@@ -211,31 +218,150 @@ def build_dataloader(
     )
 
 
+def _unwrap_model(model: torch.nn.Module) -> torch.nn.Module:
+    """Return the original model when wrapped by DataParallel/DDP."""
+    return model.module if hasattr(model, "module") else model
+
+
+def _trainable_params(parameters: Any) -> list[torch.nn.Parameter]:
+    return [p for p in parameters if p.requires_grad]
+
+
 def build_optimizer(config: Dict[str, Any], model: torch.nn.Module) -> torch.optim.Optimizer:
+    """Build optimizer.
+
+    Supports:
+        1. single LR for ordinary models
+        2. SegFormer layer-wise LR through model.param_groups()
+
+    For SegFormer, recommended config is:
+        optimizer:
+          name: adamw
+          lr: 0.00006
+          use_layerwise_lr: true
+          encoder_lr_mult: 1.0
+          head_lr_mult: 10.0
+          weight_decay: 0.01
+    """
     train_config = config.get("train", {})
     optimizer_config = config.get("optimizer", {})
 
-    optimizer_name = str(optimizer_config.get("name", train_config.get("optimizer", "adamw"))).lower()
+    optimizer_name = str(
+        optimizer_config.get("name", train_config.get("optimizer", "adamw"))
+    ).lower()
     lr = float(optimizer_config.get("lr", train_config.get("lr", 1e-3)))
-    weight_decay = float(optimizer_config.get("weight_decay", train_config.get("weight_decay", 0.0)))
+    weight_decay = float(
+        optimizer_config.get("weight_decay", train_config.get("weight_decay", 0.0))
+    )
+
+    raw_model = _unwrap_model(model)
+
+    has_layerwise_keys = any(
+        key in optimizer_config
+        for key in ("encoder_lr", "head_lr", "encoder_lr_mult", "head_lr_mult")
+    )
+    use_layerwise_lr = bool(optimizer_config.get("use_layerwise_lr", False)) or (
+        has_layerwise_keys and hasattr(raw_model, "param_groups")
+    )
+
+    if use_layerwise_lr:
+        if not hasattr(raw_model, "param_groups"):
+            raise ValueError(
+                "optimizer.use_layerwise_lr=True requires the model to implement "
+                "param_groups(encoder_lr, head_lr, weight_decay)."
+            )
+
+        encoder_lr = float(
+            optimizer_config.get(
+                "encoder_lr",
+                lr * float(optimizer_config.get("encoder_lr_mult", 1.0)),
+            )
+        )
+        head_lr = float(
+            optimizer_config.get(
+                "head_lr",
+                lr * float(optimizer_config.get("head_lr_mult", 1.0)),
+            )
+        )
+
+        param_groups = raw_model.param_groups(
+            encoder_lr=encoder_lr,
+            head_lr=head_lr,
+            weight_decay=weight_decay,
+        )
+
+        print(
+            "Using layer-wise optimizer groups: "
+            f"base_lr={lr:.8f}, encoder_lr={encoder_lr:.8f}, "
+            f"head_lr={head_lr:.8f}, weight_decay={weight_decay}"
+        )
+    else:
+        params = _trainable_params(model.parameters())
+        if len(params) == 0:
+            raise ValueError("No trainable parameters found for optimizer.")
+        param_groups = [
+            {
+                "params": params,
+                "lr": lr,
+                "weight_decay": weight_decay,
+                "name": "all",
+            }
+        ]
 
     if optimizer_name == "adamw":
-        return torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
-
+        return torch.optim.AdamW(param_groups)
     if optimizer_name == "adam":
-        return torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
-
+        return torch.optim.Adam(param_groups)
     if optimizer_name == "sgd":
-        momentum = float(optimizer_config.get("momentum", train_config.get("momentum", 0.9)))
-        return torch.optim.SGD(model.parameters(), lr=lr, momentum=momentum, weight_decay=weight_decay)
+        momentum = float(
+            optimizer_config.get("momentum", train_config.get("momentum", 0.9))
+        )
+        return torch.optim.SGD(param_groups, momentum=momentum)
 
     raise ValueError(f"Unknown optimizer: {optimizer_name}")
+
+
+
+def get_lr_dict(optimizer: torch.optim.Optimizer) -> Dict[str, float]:
+    """Return current learning rates for all optimizer parameter groups."""
+    lr_dict: Dict[str, float] = {}
+    for idx, group in enumerate(optimizer.param_groups):
+        group_name = str(group.get("name", f"group_{idx}"))
+        if group_name in lr_dict:
+            group_name = f"{group_name}_{idx}"
+        lr_dict[group_name] = float(group["lr"])
+    return lr_dict
+
+
+def get_primary_lr(optimizer: torch.optim.Optimizer) -> float:
+    """Return a representative LR for console summaries and legacy JSON fields."""
+    lr_dict = get_lr_dict(optimizer)
+    if "head" in lr_dict:
+        return lr_dict["head"]
+    if "all" in lr_dict:
+        return lr_dict["all"]
+    return next(iter(lr_dict.values()))
+
+
+def format_lr_dict(lr_dict: Dict[str, float]) -> str:
+    return ", ".join(f"{name}: {lr:.8f}" for name, lr in lr_dict.items())
 
 
 def build_scheduler(
     config: Dict[str, Any],
     optimizer: torch.optim.Optimizer,
 ) -> torch.optim.lr_scheduler.LRScheduler | None:
+    """Build LR scheduler.
+
+    Supports:
+        - none
+        - cosine / cosine_annealing
+        - poly / polynomial
+
+    Note:
+        warmup_epochs is epoch-based in this training loop.
+        Official SegFormer configs use iteration-based warmup, so this is an approximation.
+    """
     scheduler_config = config.get("scheduler", {})
     scheduler_name = str(scheduler_config.get("name", "cosine")).lower()
 
@@ -249,12 +375,37 @@ def build_scheduler(
             eta_min=float(scheduler_config.get("eta_min", 1e-6)),
         )
 
+    if scheduler_name in {"poly", "polynomial"}:
+        total_epochs = int(config["train"]["epochs"])
+        power = float(scheduler_config.get("power", 1.0))
+        warmup_epochs = int(scheduler_config.get("warmup_epochs", 0))
+
+        min_factor = scheduler_config.get("min_factor", None)
+        if min_factor is None:
+            min_lr = scheduler_config.get("min_lr", scheduler_config.get("eta_min", None))
+            if min_lr is not None:
+                max_base_lr = max(float(group["lr"]) for group in optimizer.param_groups)
+                min_factor = float(min_lr) / max(max_base_lr, 1e-12)
+            else:
+                min_factor = 0.0
+        min_factor = float(min_factor)
+
+        def lr_lambda(epoch: int) -> float:
+            if warmup_epochs > 0 and epoch < warmup_epochs:
+                return float(epoch + 1) / float(warmup_epochs)
+
+            progress = (epoch - warmup_epochs) / max(1, total_epochs - warmup_epochs)
+            progress = min(max(progress, 0.0), 1.0)
+            return max(min_factor, (1.0 - progress) ** power)
+
+        return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lr_lambda)
+
     raise ValueError(f"Unknown scheduler: {scheduler_name}")
+
 
 
 def get_early_stopping_config(config: Dict[str, Any]) -> Dict[str, Any]:
     early_config = config.get("early_stopping", {})
-
     return {
         "enabled": bool(early_config.get("enabled", True)),
         "monitor": str(early_config.get("monitor", "val_miou")),
@@ -267,20 +418,16 @@ def get_early_stopping_config(config: Dict[str, Any]) -> Dict[str, Any]:
 def is_improved(current_value: float, best_value: float, mode: str, min_delta: float) -> bool:
     if mode == "max":
         return current_value > best_value + min_delta
-
     if mode == "min":
         return current_value < best_value - min_delta
-
     raise ValueError(f"Unknown early stopping mode: {mode}")
 
 
 def get_initial_best_value(mode: str) -> float:
     if mode == "max":
         return float("-inf")
-
     if mode == "min":
         return float("inf")
-
     raise ValueError(f"Unknown early stopping mode: {mode}")
 
 
@@ -292,12 +439,10 @@ def load_resume_checkpoint(
     device: torch.device,
 ) -> tuple[int, float, int, int]:
     checkpoint = torch.load(resume_path, map_location=device)
-
     model.load_state_dict(checkpoint["model_state_dict"])
 
     if "optimizer_state_dict" in checkpoint:
         optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
-
     if scheduler is not None and checkpoint.get("scheduler_state_dict") is not None:
         scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
 
@@ -305,7 +450,6 @@ def load_resume_checkpoint(
     best_miou = float(checkpoint.get("best_miou", 0.0))
     early_bad_epochs = int(checkpoint.get("early_bad_epochs", 0))
     global_step = int(checkpoint.get("global_step", 0))
-
     return start_epoch, best_miou, early_bad_epochs, global_step
 
 
@@ -322,7 +466,6 @@ def train_one_epoch(
     global_step: int,
 ) -> tuple[Dict[str, float], int]:
     model.train()
-
     loss_meter = AverageMeter("train_loss")
     metric.reset()
 
@@ -338,10 +481,8 @@ def train_one_epoch(
         masks = batch["mask"].to(device, non_blocking=True)
 
         optimizer.zero_grad(set_to_none=True)
-
         logits = model(images)
         loss = criterion(logits, masks)
-
         loss.backward()
         optimizer.step()
 
@@ -350,23 +491,24 @@ def train_one_epoch(
         metric.update(logits.detach(), masks)
 
         if batch_idx % log_interval == 0:
-            lr = get_lr(optimizer)
+            lr_dict = get_lr_dict(optimizer)
             print(
                 f"Epoch [{epoch}] "
                 f"Train [{batch_idx:04d}/{len(dataloader):04d}] "
                 f"loss: {loss_meter.avg:.4f} "
-                f"lr: {lr:.6f}"
+                f"lr: {format_lr_dict(lr_dict)}"
             )
 
-            logger.log(
-                {
-                    "train/iter_loss": float(loss.item()),
-                    "train/loss": float(loss_meter.avg),
-                    "lr": float(lr),
-                    "epoch": int(epoch),
-                },
-                step=global_step,
-            )
+            log_data = {
+                "train/iter_loss": float(loss.item()),
+                "train/loss": float(loss_meter.avg),
+                "lr": float(get_primary_lr(optimizer)),
+                "epoch": int(epoch),
+            }
+            for group_name, group_lr in lr_dict.items():
+                log_data[f"lr/{group_name}"] = float(group_lr)
+
+            logger.log(log_data, step=global_step)
 
         global_step += 1
 
@@ -383,7 +525,6 @@ def validate_one_epoch(
     device: torch.device,
 ) -> Dict[str, Any]:
     model.eval()
-
     loss_meter = AverageMeter("val_loss")
     metric.reset()
 
@@ -399,7 +540,6 @@ def validate_one_epoch(
         metric.update(logits, masks)
 
     result = metric.compute()
-
     return {
         "loss": float(loss_meter.avg),
         "miou": float(result["miou"]),
@@ -414,10 +554,12 @@ def main() -> None:
     seed = int(config.get("seed", 42))
     set_seed(seed)
 
-    device = get_device()
+    device = torch.device(args.device) if args.device is not None else get_device()
     print(f"Using device: {device}")
 
-    save_dir = ensure_dir(config.get("checkpoint", {}).get("save_dir", "outputs/checkpoints/baseline"))
+    save_dir = ensure_dir(
+        config.get("checkpoint", {}).get("save_dir", "outputs/checkpoints/baseline")
+    )
     save_config(config, save_dir / "config.yaml")
 
     logger = build_logger(config)
@@ -443,13 +585,11 @@ def main() -> None:
     criterion = build_loss(config).to(device)
     optimizer = build_optimizer(config, model)
     scheduler = build_scheduler(config, optimizer)
-
     metric = SegmentationMetric(
         num_classes=int(config["data"]["num_classes"]),
         ignore_index=int(config["data"].get("ignore_index", 255)),
         device=device,
     )
-
     class_names = get_class_names()
 
     print(f"Model: {config['model']['name']}")
@@ -459,6 +599,7 @@ def main() -> None:
     print(f"Train samples: {len(train_loader.dataset)}")
     print(f"Val samples: {len(val_loader.dataset)}")
     print(f"Trainable parameters: {count_parameters(model):,}")
+    print(f"Optimizer LR groups: {format_lr_dict(get_lr_dict(optimizer))}")
 
     logger.watch(
         model,
@@ -499,6 +640,7 @@ def main() -> None:
         print(f"Best mIoU: {best_miou:.4f}")
         print(f"Early stopping counter: {early_bad_epochs}/{early_patience}")
         print(f"Global step: {global_step}")
+        print(f"Resumed optimizer LR groups: {format_lr_dict(get_lr_dict(optimizer))}")
 
     epochs = int(config["train"]["epochs"])
     training_history: list[Dict[str, Any]] = []
@@ -536,20 +678,19 @@ def main() -> None:
             if scheduler is not None:
                 scheduler.step()
 
-            current_lr = get_lr(optimizer)
+            current_lr_dict = get_lr_dict(optimizer)
+            current_lr = get_primary_lr(optimizer)
             current_miou = float(val_metrics["miou"])
 
             print(format_metrics(train_metrics, prefix=f"Epoch [{epoch}] Train"))
-            print(
-                format_metrics(
-                    {
-                        "loss": val_metrics["loss"],
-                        "miou": current_miou,
-                        "lr": current_lr,
-                    },
-                    prefix=f"Epoch [{epoch}] Val",
-                )
-            )
+            val_print_metrics: Dict[str, float] = {
+                "loss": float(val_metrics["loss"]),
+                "miou": current_miou,
+                "lr": current_lr,
+            }
+            for group_name, group_lr in current_lr_dict.items():
+                val_print_metrics[f"lr_{group_name}"] = group_lr
+            print(format_metrics(val_print_metrics, prefix=f"Epoch [{epoch}] Val"))
 
             logger.log_metrics(train_metrics, prefix="train_epoch", step=global_step)
             logger.log_metrics(
@@ -557,7 +698,10 @@ def main() -> None:
                 prefix="val",
                 step=global_step,
             )
-            logger.log({"lr/epoch": float(current_lr), "epoch": int(epoch)}, step=global_step)
+            lr_log_data = {"lr/epoch": float(current_lr), "epoch": int(epoch)}
+            for group_name, group_lr in current_lr_dict.items():
+                lr_log_data[f"lr_epoch/{group_name}"] = float(group_lr)
+            logger.log(lr_log_data, step=global_step)
             logger.log_class_iou(
                 val_metrics["class_iou"],
                 class_names=class_names,
@@ -571,7 +715,6 @@ def main() -> None:
                 mode=early_mode,
                 min_delta=early_min_delta,
             )
-
             if is_best:
                 best_miou = current_miou
                 early_bad_epochs = 0
@@ -594,11 +737,10 @@ def main() -> None:
                 "early_stopping": early_config,
                 "condition": args.condition,
                 "include_normal": args.include_normal,
+                "lr_dict": current_lr_dict,
                 "config": config,
             }
-
             save_checkpoint(checkpoint_state, save_dir / "last.pth")
-
             if is_best:
                 save_checkpoint(checkpoint_state, save_dir / "best_miou.pth")
 
@@ -610,10 +752,13 @@ def main() -> None:
                 "val_loss": float(val_metrics["loss"]),
                 "val_miou": float(current_miou),
                 "lr": float(current_lr),
+                "lr_dict": current_lr_dict,
                 "best_miou": float(best_miou),
                 "is_best": bool(is_best),
                 "early_bad_epochs": int(early_bad_epochs),
             }
+            for group_name, group_lr in current_lr_dict.items():
+                epoch_record[f"lr_{group_name}"] = float(group_lr)
             training_history.append(epoch_record)
 
             if args.save_results:
@@ -675,6 +820,11 @@ def main() -> None:
                     if len(training_history) > 0
                     else None
                 ),
+                "final_lr_dict": (
+                    training_history[-1].get("lr_dict")
+                    if len(training_history) > 0
+                    else None
+                ),
                 "stopped_early": bool(stopped_early),
                 "stopped_epoch": stopped_epoch,
                 "early_stopping": early_config,
@@ -690,7 +840,6 @@ def main() -> None:
             print(f"Saved train history JSON: {train_history_path}")
 
         print("Best checkpoint:", save_dir / "best_miou.pth")
-
         if (save_dir / "best_miou.pth").exists():
             condition_arg = f" --condition {args.condition}" if args.condition is not None else ""
             print("\nFinal best checkpoint can be evaluated with:")
@@ -698,7 +847,6 @@ def main() -> None:
                 f"python -m awseg.evaluate --config {args.config} "
                 f"--checkpoint {save_dir / 'best_miou.pth'} --split val{condition_arg}"
             )
-
     finally:
         logger.finish()
 

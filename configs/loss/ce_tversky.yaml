@@ -1,0 +1,12 @@
+experiment:
+  name: loss_ce_tversky
+  group: loss
+
+loss:
+  name: "ce_tversky"
+  ce_weight: 1.0
+  dice_weight: 1.0
+  alpha: 0.3
+  beta: 0.7
+  smooth: 1.0
+  ignore_index: 255

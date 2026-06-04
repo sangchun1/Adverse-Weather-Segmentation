@@ -1,0 +1,11 @@
+experiment:
+  name: loss_ce_focal_dice
+  group: loss
+
+loss:
+  name: "ce_focal_dice"
+  ce_weight: 1.0
+  dice_weight: 1.0
+  gamma: 2.0
+  smooth: 1.0
+  ignore_index: 255

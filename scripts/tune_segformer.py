@@ -10,7 +10,7 @@ loss / augmentation / enhancement settings from a base config such as
 configs/proposed.yaml.
 
 Default search space:
-    freeze_stages = [0, 1, 2]
+    freeze_mode = ["full", "freeze_s1", "freeze_s12", "freeze_s123"]
     encoder_lr_mult = [0.1, 0.3, 0.5, 1.0]
     head_lr_mult = [1.0, 3.0]
     classifier_dropout_prob = [0.0, 0.1, 0.2]
@@ -51,10 +51,10 @@ import yaml
 
 
 DEFAULT_SEARCH_SPACE: dict[str, list[Any]] = {
-    "freeze_stages": [0, 1, 2],
+    "freeze_mode": ["full", "freeze_s1", "freeze_s12", "freeze_s123"],
     "encoder_lr_mult": [0.1, 0.3, 0.5, 1.0],
     "head_lr_mult": [1.0, 3.0],
-    "classifier_dropout_prob": [0.0, 0.1, 0.2],
+    "dropout": [0.0, 0.1, 0.2],
     "drop_path_rate": [0.0, 0.05, 0.1, 0.2],
 }
 
@@ -215,13 +215,36 @@ def apply_trial_config(
     model_config["name"] = "segformer"
     model_config.setdefault("pretrained_name", DEFAULT_PRETRAINED_NAME)
 
-    if "freeze_stages" in search_space:
-        model_config["freeze_stages"] = int(
-            suggest_categorical(trial, "freeze_stages", search_space["freeze_stages"])
+    # Rain branch convention uses freeze_mode instead of freeze_stages.
+    if "freeze_mode" in search_space:
+        model_config["freeze_mode"] = str(
+            suggest_categorical(trial, "freeze_mode", search_space["freeze_mode"])
         )
 
-    if "classifier_dropout_prob" in search_space:
-        model_config["classifier_dropout_prob"] = float(
+    # Backward compatibility: if an old tuning config still uses freeze_stages,
+    # map it to the rain-branch freeze_mode names.
+    if "freeze_stages" in search_space and "freeze_mode" not in search_space:
+        freeze_stages = int(
+            suggest_categorical(trial, "freeze_stages", search_space["freeze_stages"])
+        )
+        freeze_stage_to_mode = {
+            0: "full",
+            1: "freeze_s1",
+            2: "freeze_s12",
+            3: "freeze_s123",
+        }
+        if freeze_stages not in freeze_stage_to_mode:
+            raise ValueError(f"Unsupported freeze_stages value: {freeze_stages}")
+        model_config["freeze_mode"] = freeze_stage_to_mode[freeze_stages]
+
+    if "dropout" in search_space:
+        model_config["dropout"] = float(
+            suggest_categorical(trial, "dropout", search_space["dropout"])
+        )
+
+    # Backward compatibility for older config key.
+    if "classifier_dropout_prob" in search_space and "dropout" not in search_space:
+        model_config["dropout"] = float(
             suggest_categorical(
                 trial,
                 "classifier_dropout_prob",

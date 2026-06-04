@@ -50,46 +50,52 @@ model:
   pretrained_name: "nvidia/segformer-b2-finetuned-cityscapes-1024-1024"
   num_classes: 19
 
-  # tuning 후 best 값으로 수정
-  freeze_stages: 0
-  classifier_dropout_prob: 0.1
+  dropout: 0.1
   drop_path_rate: 0.1
+
+  # tuning 후 best 값으로 수정
+  # full       : freeze 없음
+  # freeze_s1  : stage 1 freeze
+  # freeze_s12 : stage 1, 2 freeze
+  # freeze_s123: stage 1, 2, 3 freeze
+  # head_only  : encoder 전체 freeze, decode head만 학습
+  freeze_mode: "full"
+
   train_norm_when_frozen: true
   align_corners: false
+  ignore_mismatched_sizes: false
 
 loss:
   # loss test 후 best loss로 수정
-  name: "ce_dice"
+  name: "ce_tversky"
   ignore_index: 255
 
   # hybrid loss 후보들이 공통으로 참조할 수 있는 기본값
   ce_weight: 1.0
   dice_weight: 1.0
-  focal_weight: 0.5
-  tversky_weight: 1.0
-  lovasz_weight: 1.0
-  focal_tversky_weight: 1.0
 
   alpha: 0.3
   beta: 0.7
-  gamma: 2.0
   smooth: 1.0
 
 optimizer:
   name: "adamw"
-  lr: 0.0001
+  lr: 0.00006
 
   # SegFormer param_groups에서 사용
   # tuning 후 best 값으로 수정
-  encoder_lr_mult: 0.1
-  head_lr_mult: 1.0
+  use_layerwise_lr: true
+  encoder_lr_mult: 1.0
+  head_lr_mult: 10.0
 
   weight_decay: 0.01
 
 scheduler:
   name: "poly"
   power: 1.0
-  eta_min: 0.000001
+  eta_min: 0.0
+  min_lr: 0.0
+  warmup_epochs: 3
 
 train:
   epochs: 100
@@ -104,13 +110,9 @@ train:
 augmentation:
   # augmentation test 후 best 조합으로 수정
   enabled: true
-  name: "all"
+  name: "jitter"
 
   basic:
-    horizontal_flip:
-      enabled: true
-      prob: 0.5
-
     color_jitter:
       enabled: true
       prob: 0.5
@@ -119,33 +121,25 @@ augmentation:
       saturation: 0.1
       hue: 0.05
 
-    class_balanced_crop:
-      enabled: true
-      prob: 0.3
-      rare_classes: [12, 17, 18, 14, 15, 4, 11]
-      min_pixels: 30
-
   weather:
-    enabled: true
-    mode: "mixed"
-    total_prob: 0.3
-    intensity: "mild"
+    enabled: false
+    mode: "condition_specific"
 
     fog:
-      enabled: true
-      prob: 0.25
+      enabled: false
+      prob: 0.0
 
     rain:
-      enabled: true
-      prob: 0.25
+      enabled: false
+      prob: 0.0
 
     snow:
-      enabled: true
-      prob: 0.25
+      enabled: false
+      prob: 0.0
 
     night:
-      enabled: true
-      prob: 0.25
+      enabled: false
+      prob: 0.0
 
 enhancement:
   # enhancement test 후 best enhancement로 수정

@@ -14,6 +14,15 @@ from awseg.transforms.enhancement import (
     apply_enhancement,
     build_enhancer,
 )
+from awseg.transforms.augmentation import (
+    ColorJitterAugmentation,
+    IdentityAugmentation,
+    build_augmentation,
+)
+from awseg.transforms.weather_augmentation import (
+    IdentityWeatherAugmentation,
+    build_weather_augmentation,
+)
 
 __all__ = [
     "BaselineTransform",
@@ -28,4 +37,9 @@ __all__ = [
     "ConditionalEnhancer",
     "build_enhancer",
     "apply_enhancement",
+    "IdentityAugmentation",
+    "ColorJitterAugmentation",
+    "build_augmentation",
+    "IdentityWeatherAugmentation",
+    "build_weather_augmentation",
 ]

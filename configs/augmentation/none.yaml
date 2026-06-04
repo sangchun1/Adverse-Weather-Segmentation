@@ -1,0 +1,7 @@
+experiment:
+  name: augmentation_none
+  group: augmentation
+
+augmentation:
+  enabled: false
+  name: none

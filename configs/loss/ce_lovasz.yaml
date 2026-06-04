@@ -1,0 +1,9 @@
+experiment:
+  name: loss_ce_lovasz
+  group: loss
+
+loss:
+  name: "ce_lovasz"
+  ce_weight: 1.0
+  dice_weight: 1.0
+  ignore_index: 255

@@ -1,0 +1,8 @@
+experiment:
+  name: loss_dice
+  group: loss
+
+loss:
+  name: "dice"
+  smooth: 1.0
+  ignore_index: 255

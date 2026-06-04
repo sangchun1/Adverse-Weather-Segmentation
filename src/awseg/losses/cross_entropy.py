@@ -1,16 +1,36 @@
 from __future__ import annotations
 
+from typing import Any
+
+import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 
-def build_cross_entropy_loss(ignore_index: int = 255) -> nn.CrossEntropyLoss:
-    """Build CrossEntropyLoss for semantic segmentation.
+class CrossEntropyLoss(nn.Module):
+    """CrossEntropyLoss wrapper for semantic segmentation."""
 
-    Args:
-        ignore_index: Label value ignored when computing loss.
-            For ACDC/Cityscapes trainIds, 255 is commonly used as ignore index.
+    def __init__(
+        self,
+        ignore_index: int = 255,
+        class_weights: torch.Tensor | None = None,
+    ) -> None:
+        super().__init__()
+        self.ignore_index = int(ignore_index)
 
-    Returns:
-        torch.nn.CrossEntropyLoss with ignore_index.
-    """
-    return nn.CrossEntropyLoss(ignore_index=ignore_index)
+        if class_weights is not None:
+            self.register_buffer("class_weights", class_weights.float())
+        else:
+            self.class_weights = None
+
+    def forward(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        weight = None
+        if self.class_weights is not None:
+            weight = self.class_weights.to(device=pred.device, dtype=pred.dtype)
+
+        return F.cross_entropy(
+            pred,
+            target.long(),
+            weight=weight,
+            ignore_index=self.ignore_index,
+        )
