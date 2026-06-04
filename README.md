@@ -100,10 +100,16 @@ Adverse-Weather-Segmentation/
 │           └── weather_augmentation.py
 │
 ├── outputs/
+|   ├── results/
+|   |   ├── baseline/
+|   |   ├── loss/
+|   |   ├── model/
+|   |   ├── augmentation/
+|   |   ├── enhancement/
+|   |   └── proposed/
 │   ├── analysis/
 │   ├── checkpoints/                
-│   ├── logs/                       
-|   ├── results/                   
+│   ├── logs/                                       
 │   ├── visualizations/             
 │   └── wandb/                      
 │
