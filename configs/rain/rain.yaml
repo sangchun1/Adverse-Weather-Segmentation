@@ -60,8 +60,8 @@ scheduler:
   min_factor: 0.0
 train:
   epochs: 100
-  batch_size: 4     
-  num_workers: 4 ###
+  batch_size: 2 #나중에 4로 다시 조절    
+  num_workers: 4 
   pin_memory: true
   amp: true
   grad_clip_norm: null
@@ -94,7 +94,7 @@ wandb:
   notes: "SegFormer-b2 full fine-tuning baseline on ACDC rain, 1024x512, CE loss, poly schedule."
   dir: "outputs"
 evaluate:
-  batch_size: 4
+  batch_size: 2 #니중에 4로 다시 조절
   num_workers: 4
   save_predictions: false
-  output_dir: "outputs/results/segformer_rain"
+  output_dir: "outputs/results/rain/segformer_rain"
