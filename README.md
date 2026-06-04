@@ -59,7 +59,7 @@ Adverse-Weather-Segmentation/
 │   ├── run_proposed.sh
 │   ├── colab_run_proposed.ipynb
 │   ├── run_baseline.sh
-│   ├── colab_run_baseline.sh
+│   ├── colab_run_baseline.ipynb
 │   ├── analyze_errors.py
 │   ├── colab_analyze_errors.ipynb
 │   ├── plot_results.py
