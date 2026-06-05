@@ -99,7 +99,7 @@ scheduler:
 
 train:
   epochs: 100
-  batch_size: 4
+  batch_size: 8
   num_workers: 4
   pin_memory: true
   amp: true
@@ -164,17 +164,20 @@ early_stopping:
   enabled: true
   monitor: "val_miou"
   mode: "max"
-  patience: 10
+  patience: 15
   min_delta: 0.0001
 
 wandb:
   enabled: true
   project: "adverse-weather-segmentation"
   entity: null
-  run_name: "proposed"
+  run_name: "segformer_proposed"
   tags:
     - proposed
     - segformer
+    - ce_tversky
+    - jitter
+    - clahe
     - acdc
     - adverse-weather
   notes: "Proposed model with best loss, best pretrained model, best augmentation, and best enhancement."
@@ -182,7 +185,7 @@ wandb:
 
 evaluate:
   batch_size: 4
-  num_workers: 4
+  num_workers: 0
   save_predictions: true
   output_dir: "outputs/results/proposed"
 
