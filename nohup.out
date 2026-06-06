@@ -1,0 +1,30 @@
+Starting SegFormer tuning...
+Config              : configs/proposed.yaml
+Condition           : all
+Trials              : 6
+Max epochs per trial: 20
+Output dir          : outputs/tuning/segformer
+Study name          : segformer_optuna
+Storage             : sqlite:///outputs/tuning/segformer/optuna.db
+Device              : cuda:0
+Run eval            : 0
+Log file            : outputs/logs/segformer_optuna_20260606_204155.log
+[I 2026-06-06 20:41:56,299] Using an existing study with name 'segformer_optuna' instead of creating a new one.
+[I 2026-06-06 21:25:45,919] Trial 20 finished with value: 0.7132343649864197 and parameters: {'freeze_mode': 'full', 'dropout': 0.1, 'drop_path_rate': 0.1, 'encoder_lr_mult': 1.0, 'head_lr_mult': 5.0, 'lr': 6e-05}. Best is trial 18 with value: 0.713492214679718.
+[I 2026-06-06 22:09:04,694] Trial 21 finished with value: 0.7126866579055786 and parameters: {'freeze_mode': 'full', 'dropout': 0.1, 'drop_path_rate': 0.1, 'encoder_lr_mult': 1.0, 'head_lr_mult': 5.0, 'lr': 6e-05}. Best is trial 18 with value: 0.713492214679718.
+Starting SegFormer tuning...
+Config              : configs/proposed.yaml
+Condition           : all
+Trials              : 5
+Max epochs per trial: 20
+Output dir          : outputs/tuning/segformer
+Study name          : segformer_optuna
+Storage             : sqlite:///outputs/tuning/segformer/optuna.db
+Device              : cuda:0
+Run eval            : 0
+Log file            : outputs/logs/segformer_optuna_20260606_224046.log
+[I 2026-06-06 22:40:47,685] Using an existing study with name 'segformer_optuna' instead of creating a new one.
+[I 2026-06-06 23:24:21,662] Trial 23 finished with value: 0.7184473276138306 and parameters: {'freeze_mode': 'full', 'dropout': 0.1, 'drop_path_rate': 0.1, 'encoder_lr_mult': 1.0, 'head_lr_mult': 5.0, 'lr': 0.0001}. Best is trial 23 with value: 0.7184473276138306.
+[I 2026-06-07 00:07:56,819] Trial 24 finished with value: 0.7153359651565552 and parameters: {'freeze_mode': 'full', 'dropout': 0.1, 'drop_path_rate': 0.1, 'encoder_lr_mult': 1.0, 'head_lr_mult': 5.0, 'lr': 0.0001}. Best is trial 23 with value: 0.7184473276138306.
+[I 2026-06-07 00:51:30,018] Trial 25 finished with value: 0.7098199725151062 and parameters: {'freeze_mode': 'freeze_s12', 'dropout': 0.1, 'drop_path_rate': 0.1, 'encoder_lr_mult': 1.0, 'head_lr_mult': 10.0, 'lr': 0.0001}. Best is trial 23 with value: 0.7184473276138306.
+[I 2026-06-07 01:35:23,442] Trial 26 finished with value: 0.7148773074150085 and parameters: {'freeze_mode': 'freeze_s1', 'dropout': 0.1, 'drop_path_rate': 0.1, 'encoder_lr_mult': 1.0, 'head_lr_mult': 5.0, 'lr': 0.0001}. Best is trial 23 with value: 0.7184473276138306.
