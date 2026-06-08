@@ -99,12 +99,12 @@ scheduler:
 
 train:
   epochs: 100
-  batch_size: 8
+  batch_size: 32
   num_workers: 4
   pin_memory: true
   amp: true
   grad_clip_norm: null
-  log_interval: 20
+  log_interval: 1
   val_interval: 1
 
 augmentation:
@@ -185,7 +185,7 @@ wandb:
 
 evaluate:
   batch_size: 4
-  num_workers: 4
+  num_workers: 2
   save_predictions: true
   output_dir: "outputs/results/proposed"
 
