@@ -185,7 +185,7 @@ wandb:
 
 evaluate:
   batch_size: 4
-  num_workers: 0
+  num_workers: 4
   save_predictions: true
   output_dir: "outputs/results/proposed"
 
