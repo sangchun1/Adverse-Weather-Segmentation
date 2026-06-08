@@ -20,7 +20,13 @@ from awseg.transforms.augmentation import (
     build_augmentation,
 )
 from awseg.transforms.weather_augmentation import (
+    ConditionSpecificWeatherAugmentation,
+    FogAugmentation,
     IdentityWeatherAugmentation,
+    NightAugmentation,
+    RainAugmentation,
+    SnowAugmentation,
+    TargetConditionWeatherAugmentation,
     build_weather_augmentation,
 )
 
@@ -41,5 +47,11 @@ __all__ = [
     "ColorJitterAugmentation",
     "build_augmentation",
     "IdentityWeatherAugmentation",
+    "FogAugmentation",
+    "RainAugmentation",
+    "SnowAugmentation",
+    "NightAugmentation",
+    "TargetConditionWeatherAugmentation",
+    "ConditionSpecificWeatherAugmentation",
     "build_weather_augmentation",
 ]
