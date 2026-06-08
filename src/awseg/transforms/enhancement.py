@@ -128,7 +128,7 @@ class IdentityEnhancer:
         image: Image.Image,
         condition: Optional[str] = None,
     ) -> Image.Image:
-        return _ensure_rgb(image)
+        return _ensure_rgb(image).copy()
 
 
 @dataclass
@@ -259,7 +259,8 @@ class ConditionalEnhancer:
             apply_conditions=self.apply_conditions,
         ):
             return self.enhancer(image, condition=condition)
-        return _ensure_rgb(image)
+
+        return _ensure_rgb(image).copy()
 
 
 def build_enhancer(config: dict[str, Any], split: Optional[str] = None) -> Enhancer:

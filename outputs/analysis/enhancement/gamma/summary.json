@@ -1,0 +1,42 @@
+{
+  "config": "outputs/tmp_configs/enhancement/gamma.yaml",
+  "checkpoint": "outputs/checkpoints/enhancement/gamma/best_miou.pth",
+  "group": "enhancement",
+  "experiment": "gamma",
+  "split": "val",
+  "condition": "none",
+  "num_images": 406,
+  "miou_from_selected_samples": 0.7312707213706728,
+  "mean_pixel_error_rate": 0.059297608214556936,
+  "mean_boundary_error_rate": 0.28793792725639533,
+  "mean_dynamic_to_background_error_rate": 0.115013754170904,
+  "class_iou_from_selected_samples": {
+    "road": 0.9603868951848017,
+    "sidewalk": 0.8242623786224781,
+    "building": 0.8807302540528595,
+    "wall": 0.6049390831434796,
+    "fence": 0.5109225266052562,
+    "pole": 0.6324276655435712,
+    "traffic_light": 0.7710608395487888,
+    "traffic_sign": 0.6623444208985532,
+    "vegetation": 0.8752661135291336,
+    "terrain": 0.5564209691514418,
+    "sky": 0.9545531529738577,
+    "person": 0.6611571317963949,
+    "rider": 0.3233750886315292,
+    "car": 0.8801067968955268,
+    "truck": 0.8189071896103222,
+    "bus": 0.9035012246435973,
+    "train": 0.9012517612161661,
+    "motorcycle": 0.5394612156491133,
+    "bicycle": 0.6330689983459119
+  },
+  "outputs": {
+    "per_image_errors": "outputs/analysis/enhancement/gamma/per_image_errors.csv",
+    "class_error_summary": "outputs/analysis/enhancement/gamma/class_error_summary.csv",
+    "top_confusion_pairs": "outputs/analysis/enhancement/gamma/top_confusion_pairs.csv",
+    "confusion_matrix": "outputs/analysis/enhancement/gamma/confusion_matrix.csv",
+    "plots": "outputs/analysis/enhancement/gamma/plots",
+    "examples": "outputs/analysis/enhancement/gamma/examples"
+  }
+}

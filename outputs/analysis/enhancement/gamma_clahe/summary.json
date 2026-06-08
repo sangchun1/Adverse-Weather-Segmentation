@@ -1,0 +1,42 @@
+{
+  "config": "outputs/tmp_configs/enhancement/gamma_clahe.yaml",
+  "checkpoint": "outputs/checkpoints/enhancement/gamma_clahe/best_miou.pth",
+  "group": "enhancement",
+  "experiment": "gamma_clahe",
+  "split": "val",
+  "condition": "none",
+  "num_images": 406,
+  "miou_from_selected_samples": 0.7236169193737387,
+  "mean_pixel_error_rate": 0.06185705716220405,
+  "mean_boundary_error_rate": 0.2925505412172102,
+  "mean_dynamic_to_background_error_rate": 0.12066966571335787,
+  "class_iou_from_selected_samples": {
+    "road": 0.9572370171623655,
+    "sidewalk": 0.8115973711257521,
+    "building": 0.8763289059383823,
+    "wall": 0.5792879187935123,
+    "fence": 0.5001947000036614,
+    "pole": 0.6243183922631091,
+    "traffic_light": 0.7564919915382291,
+    "traffic_sign": 0.636657407542066,
+    "vegetation": 0.872287064714588,
+    "terrain": 0.5273685627939376,
+    "sky": 0.9549614192850663,
+    "person": 0.6663604576143837,
+    "rider": 0.37458515283842797,
+    "car": 0.8705645749156496,
+    "truck": 0.8263361850655087,
+    "bus": 0.8810256803881827,
+    "train": 0.9047546112453797,
+    "motorcycle": 0.501272425711862,
+    "bicycle": 0.627091629160971
+  },
+  "outputs": {
+    "per_image_errors": "outputs/analysis/enhancement/gamma_clahe/per_image_errors.csv",
+    "class_error_summary": "outputs/analysis/enhancement/gamma_clahe/class_error_summary.csv",
+    "top_confusion_pairs": "outputs/analysis/enhancement/gamma_clahe/top_confusion_pairs.csv",
+    "confusion_matrix": "outputs/analysis/enhancement/gamma_clahe/confusion_matrix.csv",
+    "plots": "outputs/analysis/enhancement/gamma_clahe/plots",
+    "examples": "outputs/analysis/enhancement/gamma_clahe/examples"
+  }
+}

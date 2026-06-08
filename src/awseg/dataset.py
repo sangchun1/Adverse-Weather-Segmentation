@@ -206,7 +206,8 @@ class ACDCSegmentationDataset(Dataset):
         if not image_path.exists():
             raise FileNotFoundError(f"Image file not found: {image_path}")
 
-        image = Image.open(image_path).convert("RGB")
+        with Image.open(image_path) as img:
+            image = img.convert("RGB").copy()
 
         mask = None
         label_path = None
@@ -218,9 +219,10 @@ class ACDCSegmentationDataset(Dataset):
             if not label_path.exists():
                 raise FileNotFoundError(f"Label file not found: {label_path}")
 
-            # Do not convert the mask to RGB.
-            # Cityscapes/ACDC trainIds are stored as single-channel class IDs.
-            mask = Image.open(label_path)
+            # Keep mask as single-channel class ID image.
+            # copy() closes the underlying file handle safely.
+            with Image.open(label_path) as m:
+                mask = m.copy()
         elif self.split in {"train", "val"}:
             raise ValueError(
                 f"Label path is missing for {self.split} sample: {image_path}"

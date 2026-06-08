@@ -228,7 +228,7 @@ outputs/wandb/
 *.pth
 *.pt
 *.ckpt
-
+outputs/tmp_configs/
 third_party
 
 z.md
