@@ -1,0 +1,2 @@
+experiment,display_name,road,sidewalk,building,wall,fence,pole,traffic_light,traffic_sign,vegetation,terrain,sky,person,rider,car,truck,bus,train,motorcycle,bicycle
+proposed,Proposed,0.95977020,0.80949098,0.87875682,0.58709091,0.51378560,0.62960875,0.76013058,0.62491536,0.87313968,0.52713490,0.95473266,0.63273031,0.26553729,0.88249445,0.83449334,0.89302284,0.89671540,0.45963514,0.61618024

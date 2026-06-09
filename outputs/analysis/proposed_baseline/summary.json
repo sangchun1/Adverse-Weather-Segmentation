@@ -1,0 +1,42 @@
+{
+  "config": "configs/proposed_baseline.yaml",
+  "checkpoint": "outputs/checkpoints/proposed_baseline/best_miou.pth",
+  "group": "proposed",
+  "experiment": "proposed",
+  "split": "val",
+  "condition": "none",
+  "num_images": 406,
+  "miou_from_selected_samples": 0.718512267295251,
+  "mean_pixel_error_rate": 0.05969966095306599,
+  "mean_boundary_error_rate": 0.2869578906640395,
+  "mean_dynamic_to_background_error_rate": 0.13260503292053352,
+  "class_iou_from_selected_samples": {
+    "road": 0.9607374275146313,
+    "sidewalk": 0.8186459128878008,
+    "building": 0.8803370907383724,
+    "wall": 0.5974500572563348,
+    "fence": 0.5083883742387525,
+    "pole": 0.6384877030190131,
+    "traffic_light": 0.7632427394456981,
+    "traffic_sign": 0.6355630429956789,
+    "vegetation": 0.87409299671338,
+    "terrain": 0.5373729825638925,
+    "sky": 0.9558027942989658,
+    "person": 0.6502354889700527,
+    "rider": 0.23399816831179404,
+    "car": 0.8842399028166192,
+    "truck": 0.8373268217929802,
+    "bus": 0.8935039365964482,
+    "train": 0.9009740512394085,
+    "motorcycle": 0.47611177502606217,
+    "bicycle": 0.6052218121838805
+  },
+  "outputs": {
+    "per_image_errors": "outputs/analysis/proposed_baseline/per_image_errors.csv",
+    "class_error_summary": "outputs/analysis/proposed_baseline/class_error_summary.csv",
+    "top_confusion_pairs": "outputs/analysis/proposed_baseline/top_confusion_pairs.csv",
+    "confusion_matrix": "outputs/analysis/proposed_baseline/confusion_matrix.csv",
+    "plots": "outputs/analysis/proposed_baseline/plots",
+    "examples": "outputs/analysis/proposed_baseline/examples"
+  }
+}
