@@ -1,0 +1,66 @@
+{
+  "task": "evaluate",
+  "created_at": "2026-06-09 16:59:55",
+  "config_path": "outputs/tmp_configs/augmentation/night_darkening_night.yaml",
+  "checkpoint": "outputs/checkpoints/augmentation/night_darkening_night/best_miou.pth",
+  "checkpoint_epoch": 32,
+  "checkpoint_best_miou": 0.5050656199455261,
+  "main": {
+    "split": "val",
+    "condition": "night",
+    "source_csv": "val.csv",
+    "csv_split_filter": null,
+    "num_samples": 106,
+    "miou": 0.5050656199455261,
+    "class_iou": {
+      "road": 0.9366105198860168,
+      "sidewalk": 0.732393205165863,
+      "building": 0.8045920133590698,
+      "wall": 0.47804903984069824,
+      "fence": 0.4914790689945221,
+      "pole": 0.5643224120140076,
+      "traffic_light": 0.5966488718986511,
+      "traffic_sign": 0.4165393114089966,
+      "vegetation": 0.7138960957527161,
+      "terrain": 0.10699488967657089,
+      "sky": 0.8213091492652893,
+      "person": 0.43774405121803284,
+      "rider": 0.15677566826343536,
+      "car": 0.6809399724006653,
+      "truck": 0.0,
+      "bus": 0.0,
+      "train": 0.8855525851249695,
+      "motorcycle": 0.21759635210037231,
+      "bicycle": 0.5548032522201538
+    },
+    "condition_results": {
+      "night": {
+        "miou": 0.5050656199455261,
+        "class_iou": [
+          0.9366105198860168,
+          0.732393205165863,
+          0.8045920133590698,
+          0.47804903984069824,
+          0.4914790689945221,
+          0.5643224120140076,
+          0.5966488718986511,
+          0.4165393114089966,
+          0.7138960957527161,
+          0.10699488967657089,
+          0.8213091492652893,
+          0.43774405121803284,
+          0.15677566826343536,
+          0.6809399724006653,
+          0.0,
+          0.0,
+          0.8855525851249695,
+          0.21759635210037231,
+          0.5548032522201538
+        ],
+        "num_images": 106
+      }
+    }
+  },
+  "normal": null,
+  "comparison": null
+}

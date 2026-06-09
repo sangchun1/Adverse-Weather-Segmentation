@@ -110,7 +110,7 @@ train:
 augmentation:
   # augmentation test 후 best 조합으로 수정
   enabled: true
-  name: "jitter"
+  name: "jitter_fog_haze_rain_streak"
 
   basic:
     color_jitter:
@@ -122,16 +122,26 @@ augmentation:
       hue: 0.05
 
   weather:
-    enabled: false
+    enabled: true
     mode: "condition_specific"
 
     fog:
-      enabled: false
-      prob: 0.0
+      enabled: true
+      effect: "haze"
+      haze:
+        prob: 0.3
+        intensity_range: [0.15, 0.4]
+        atmospheric_light_range: [180, 255]
 
     rain:
-      enabled: false
-      prob: 0.0
+      enabled: true
+      effect: "streak"
+      streak:
+        prob: 0.3
+        streak_count_range: [150, 600]
+        streak_length_range: [8, 24]
+        streak_angle_range: [-25, 25]
+        alpha_range: [0.1, 0.3]
 
     snow:
       enabled: false
