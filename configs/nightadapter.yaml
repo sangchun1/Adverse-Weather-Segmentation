@@ -1,0 +1,182 @@
+# SegFormer-B2 + stage-wise NightAdapter configuration.
+# This file follows the current proposed.yaml schema.
+
+experiment:
+  name: nightadapter
+  group: nightadapter
+  seed: 42
+
+seed: 42
+
+data:
+  root: "."
+  split_dir: "data/splits"
+  train_csv: "train.csv"
+  val_csv: "val.csv"
+  test_csv: "test.csv"
+  input_width: 1024
+  input_height: 512
+  num_classes: 19
+  ignore_index: 255
+  mean: [0.485, 0.456, 0.406]
+  std: [0.229, 0.224, 0.225]
+  class_names:
+    - road
+    - sidewalk
+    - building
+    - wall
+    - fence
+    - pole
+    - traffic light
+    - traffic sign
+    - vegetation
+    - terrain
+    - sky
+    - person
+    - rider
+    - car
+    - truck
+    - bus
+    - train
+    - motorcycle
+    - bicycle
+
+model:
+  name: "segformer"
+  pretrained_name: "nvidia/segformer-b2-finetuned-cityscapes-1024-1024"
+  num_classes: 19
+  dropout: 0.1
+  drop_path_rate: 0.1
+
+  # Proposed-model API.
+  # For NightAdapter, start with frozen encoder + trainable adapter/head.
+  # Change to "full" later if you want encoder fine-tuning too.
+  freeze_mode: "full"
+  train_norm_when_frozen: true
+  align_corners: false
+  ignore_mismatched_sizes: false
+
+  night_adapter:
+    enabled: true
+    stages: [3, 4]
+    num_bands: 8
+    num_tokens: 16
+    randomize_t: 0.3
+    randomize_probability: 1.0
+    randomize_groups: ["H", "M1", "M2"]
+    zero_init_fusion: true
+
+loss:
+  name: "ce_tversky"
+  ignore_index: 255
+  ce_weight: 1.0
+  dice_weight: 1.0
+  alpha: 0.3
+  beta: 0.7
+  smooth: 1.0
+
+optimizer:
+  name: "adamw"
+  lr: 0.00006
+  use_layerwise_lr: true
+  # Encoder is frozen by freeze_mode=head_only, so this only matters if you
+  # switch freeze_mode to full/freeze_s*.
+  encoder_lr_mult: 1.0
+  adapter_lr_mult: 10.0
+  head_lr_mult: 10.0
+  weight_decay: 0.01
+
+scheduler:
+  name: "poly"
+  power: 1.0
+  eta_min: 0.0
+  min_lr: 0.0
+  warmup_epochs: 3
+
+train:
+  epochs: 100
+  batch_size: 8
+  num_workers: 4
+  pin_memory: true
+  amp: true
+  grad_clip_norm: null
+  log_interval: 20
+  val_interval: 1
+
+augmentation:
+  enabled: true
+  name: "jitter"
+  basic:
+    color_jitter:
+      enabled: true
+      prob: 0.5
+      brightness: 0.2
+      contrast: 0.2
+      saturation: 0.1
+      hue: 0.05
+  weather:
+    enabled: false
+    mode: "condition_specific"
+    fog:
+      enabled: false
+      prob: 0.0
+    rain:
+      enabled: false
+      prob: 0.0
+    snow:
+      enabled: false
+      prob: 0.0
+    night:
+      enabled: false
+      prob: 0.0
+
+enhancement:
+  enabled: true
+  name: "clahe"
+  clip_limit: 2.0
+  tile_grid_size: [8, 8]
+  color_space: "lab"
+  apply_to: "all"
+  apply_conditions: ["night"]
+
+checkpoint:
+  save_dir: "outputs/checkpoints/nightadapter"
+  save_best_name: "best_miou.pth"
+  save_last_name: "last.pth"
+  monitor: "val_miou"
+  mode: "max"
+
+early_stopping:
+  enabled: true
+  monitor: "val_miou"
+  mode: "max"
+  patience: 15
+  min_delta: 0.0001
+
+wandb:
+  enabled: true
+  project: "adverse-weather-segmentation"
+  entity: null
+  run_name: "segformer_b2_nightadapter_stage34"
+  tags:
+    - nightadapter
+    - segformer
+    - segformer-b2
+    - frequency
+    - dst
+    - stage3
+    - stage4
+  notes: "SegFormer-B2 proposed model with stage-wise NightAdapter on stage 3/4."
+  dir: "outputs"
+
+evaluate:
+  batch_size: 4
+  num_workers: 0
+  save_predictions: true
+  output_dir: "outputs/results/nightadapter"
+
+output:
+  checkpoint_dir: "outputs/checkpoints/nightadapter"
+  result_dir: "outputs/results/nightadapter"
+  log_dir: "outputs/logs/nightadapter"
+  visualization_dir: "outputs/visualizations/nightadapter"

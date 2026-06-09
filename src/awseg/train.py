@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import inspect
 import json
 import math
 from datetime import datetime
@@ -32,7 +33,12 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Train semantic segmentation model.")
     parser.add_argument("--config", type=str, default="configs/baseline.yaml")
     parser.add_argument("--resume", type=str, default=None)
-    parser.add_argument("--device", type=str, default=None, help="Device override, e.g. cuda:0 or cuda:1.")
+    parser.add_argument(
+        "--device",
+        type=str,
+        default=None,
+        help="Device override, e.g. cuda:0 or cuda:1.",
+    )
     parser.add_argument(
         "--condition",
         type=str,
@@ -234,14 +240,9 @@ def build_optimizer(config: Dict[str, Any], model: torch.nn.Module) -> torch.opt
         1. single LR for ordinary models
         2. SegFormer layer-wise LR through model.param_groups()
 
-    For SegFormer, recommended config is:
-        optimizer:
-          name: adamw
-          lr: 0.00006
-          use_layerwise_lr: true
-          encoder_lr_mult: 1.0
-          head_lr_mult: 10.0
-          weight_decay: 0.01
+    Current proposed SegFormer uses encoder/head parameter groups with
+    decay/no-decay separation. NightAdapter adds adapter_lr / adapter_lr_mult
+    while preserving the same param_groups() path.
     """
     train_config = config.get("train", {})
     optimizer_config = config.get("optimizer", {})
@@ -255,10 +256,16 @@ def build_optimizer(config: Dict[str, Any], model: torch.nn.Module) -> torch.opt
     )
 
     raw_model = _unwrap_model(model)
-
     has_layerwise_keys = any(
         key in optimizer_config
-        for key in ("encoder_lr", "head_lr", "encoder_lr_mult", "head_lr_mult")
+        for key in (
+            "encoder_lr",
+            "head_lr",
+            "adapter_lr",
+            "encoder_lr_mult",
+            "head_lr_mult",
+            "adapter_lr_mult",
+        )
     )
     use_layerwise_lr = bool(optimizer_config.get("use_layerwise_lr", False)) or (
         has_layerwise_keys and hasattr(raw_model, "param_groups")
@@ -268,7 +275,7 @@ def build_optimizer(config: Dict[str, Any], model: torch.nn.Module) -> torch.opt
         if not hasattr(raw_model, "param_groups"):
             raise ValueError(
                 "optimizer.use_layerwise_lr=True requires the model to implement "
-                "param_groups(encoder_lr, head_lr, weight_decay)."
+                "param_groups(encoder_lr, head_lr, weight_decay, adapter_lr=None)."
             )
 
         encoder_lr = float(
@@ -283,18 +290,50 @@ def build_optimizer(config: Dict[str, Any], model: torch.nn.Module) -> torch.opt
                 lr * float(optimizer_config.get("head_lr_mult", 1.0)),
             )
         )
-
-        param_groups = raw_model.param_groups(
-            encoder_lr=encoder_lr,
-            head_lr=head_lr,
-            weight_decay=weight_decay,
+        adapter_lr = float(
+            optimizer_config.get(
+                "adapter_lr",
+                lr * float(optimizer_config.get("adapter_lr_mult", 1.0)),
+            )
         )
 
-        print(
-            "Using layer-wise optimizer groups: "
-            f"base_lr={lr:.8f}, encoder_lr={encoder_lr:.8f}, "
-            f"head_lr={head_lr:.8f}, weight_decay={weight_decay}"
+        # Main-branch SegFormer.param_groups() accepts only
+        # (encoder_lr, head_lr, weight_decay), while the NightAdapter
+        # SegFormer variant additionally accepts adapter_lr.  Use signature
+        # inspection so this train.py stays compatible with both versions.
+        param_group_kwargs = {
+            "encoder_lr": encoder_lr,
+            "head_lr": head_lr,
+            "weight_decay": weight_decay,
+        }
+        param_group_signature = inspect.signature(raw_model.param_groups)
+        accepts_adapter_lr = "adapter_lr" in param_group_signature.parameters or any(
+            param.kind == inspect.Parameter.VAR_KEYWORD
+            for param in param_group_signature.parameters.values()
         )
+        if accepts_adapter_lr:
+            param_group_kwargs["adapter_lr"] = adapter_lr
+        elif "adapter_lr" in optimizer_config or "adapter_lr_mult" in optimizer_config:
+            print(
+                "Warning: optimizer adapter_lr/adapter_lr_mult was configured, "
+                "but this model.param_groups() does not accept adapter_lr. "
+                "Ignoring adapter-specific LR for this model."
+            )
+
+        param_groups = raw_model.param_groups(**param_group_kwargs)
+        if accepts_adapter_lr:
+            print(
+                "Using layer-wise optimizer groups: "
+                f"base_lr={lr:.8f}, encoder_lr={encoder_lr:.8f}, "
+                f"adapter_lr={adapter_lr:.8f}, head_lr={head_lr:.8f}, "
+                f"weight_decay={weight_decay}"
+            )
+        else:
+            print(
+                "Using layer-wise optimizer groups: "
+                f"base_lr={lr:.8f}, encoder_lr={encoder_lr:.8f}, "
+                f"head_lr={head_lr:.8f}, weight_decay={weight_decay}"
+            )
     else:
         params = _trainable_params(model.parameters())
         if len(params) == 0:
@@ -321,7 +360,6 @@ def build_optimizer(config: Dict[str, Any], model: torch.nn.Module) -> torch.opt
     raise ValueError(f"Unknown optimizer: {optimizer_name}")
 
 
-
 def get_lr_dict(optimizer: torch.optim.Optimizer) -> Dict[str, float]:
     """Return current learning rates for all optimizer parameter groups."""
     lr_dict: Dict[str, float] = {}
@@ -336,10 +374,9 @@ def get_lr_dict(optimizer: torch.optim.Optimizer) -> Dict[str, float]:
 def get_primary_lr(optimizer: torch.optim.Optimizer) -> float:
     """Return a representative LR for console summaries and legacy JSON fields."""
     lr_dict = get_lr_dict(optimizer)
-    if "head" in lr_dict:
-        return lr_dict["head"]
-    if "all" in lr_dict:
-        return lr_dict["all"]
+    for key in ("head", "head_decay", "head_no_decay", "adapter", "adapter_decay", "all"):
+        if key in lr_dict:
+            return lr_dict[key]
     return next(iter(lr_dict.values()))
 
 
@@ -353,14 +390,15 @@ def build_scheduler(
 ) -> torch.optim.lr_scheduler.LRScheduler | None:
     """Build LR scheduler.
 
-    Supports:
-        - none
-        - cosine / cosine_annealing
-        - poly / polynomial
+    Compatible with the current main branch:
+      - none
+      - cosine / cosine_annealing
+      - poly / polynomial
 
     Note:
-        warmup_epochs is epoch-based in this training loop.
-        Official SegFormer configs use iteration-based warmup, so this is an approximation.
+        warmup_epochs is epoch-based in this training loop. Official
+        SegFormer configs often use iteration-based warmup, so this is an
+        approximation.
     """
     scheduler_config = config.get("scheduler", {})
     scheduler_name = str(scheduler_config.get("name", "cosine")).lower()
@@ -401,7 +439,6 @@ def build_scheduler(
         return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lr_lambda)
 
     raise ValueError(f"Unknown scheduler: {scheduler_name}")
-
 
 
 def get_early_stopping_config(config: Dict[str, Any]) -> Dict[str, Any]:
