@@ -247,18 +247,16 @@ class NightAugmentation(_ProbabilisticAugmentation):
     Supported effects:
         - darkening: reduce brightness.
         - noise: add sensor-like Gaussian noise.
-        - gamma: gamma darkening.
     """
 
-    effect: str = "gamma"
+    effect: str = "darkening"
     brightness_factor_range: tuple[float, float] = (0.4, 0.85)
     noise_std_range: tuple[float, float] = (0.005, 0.03)
-    gamma_range: tuple[float, float] = (1.4, 2.3)
 
     def __post_init__(self) -> None:
         super().__post_init__()
         self.effect = _normalize_name(self.effect)
-        if self.effect not in {"darkening", "noise", "gamma"}:
+        if self.effect not in {"darkening", "noise"}:
             raise ValueError(f"Unsupported night effect: {self.effect!r}")
 
     def __call__(
@@ -280,11 +278,6 @@ class NightAugmentation(_ProbabilisticAugmentation):
             array = _pil_to_float_array(image)
             noisy = array + np.random.normal(0.0, std, size=array.shape)
             return _array_to_pil(noisy), mask
-
-        gamma = _sample_range(self.gamma_range, (1.4, 2.3))
-        array = _pil_to_float_array(image) / 255.0
-        darkened = np.power(array, gamma) * 255.0
-        return _array_to_pil(darkened), mask
 
 
 @dataclass
@@ -505,7 +498,7 @@ def _build_single_augmentation(
     if condition == "night":
         return NightAugmentation(
             prob=prob,
-            effect=selected_effect or "gamma",
+            effect=selected_effect or "darkening",
             brightness_factor_range=tuple(
                 _get_config_value(
                     effect_config,
@@ -520,14 +513,6 @@ def _build_single_augmentation(
                     condition_config,
                     "noise_std_range",
                     (0.005, 0.03),
-                )
-            ),
-            gamma_range=tuple(
-                _get_config_value(
-                    effect_config,
-                    condition_config,
-                    "gamma_range",
-                    (1.4, 2.3),
                 )
             ),
         )
