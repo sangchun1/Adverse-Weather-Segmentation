@@ -180,6 +180,13 @@ def build_augmentation(
     color_jitter_enabled = bool(
         color_jitter_config.get("enabled", name in {"jitter", "color_jitter"})
     )
+    weather_config = aug_config.get("weather", {})
+    weather_enabled = isinstance(weather_config, dict) and bool(
+        weather_config.get("enabled", False)
+    )
+
+    if weather_enabled and not color_jitter_enabled:
+        return IdentityAugmentation()
 
     if name in {"jitter", "color_jitter"} or color_jitter_enabled:
         if not color_jitter_enabled:
