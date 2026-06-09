@@ -1,0 +1,27 @@
+experiment:
+  name: augmentation_rain_streak
+  group: augmentation
+
+augmentation:
+  enabled: true
+  name: rain_streak
+
+  basic:
+    color_jitter:
+      enabled: false
+
+  weather:
+    enabled: true
+    mode: target_condition
+    target: rain
+    effect: streak
+
+    rain:
+      enabled: true
+
+      streak:
+        prob: 0.3
+        streak_count_range: [150, 600]
+        streak_length_range: [8, 24]
+        streak_angle_range: [-25, 25]
+        alpha_range: [0.1, 0.3]

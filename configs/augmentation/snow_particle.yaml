@@ -1,0 +1,26 @@
+experiment:
+  name: augmentation_snow_particle
+  group: augmentation
+
+augmentation:
+  enabled: true
+  name: snow_particle
+
+  basic:
+    color_jitter:
+      enabled: false
+
+  weather:
+    enabled: true
+    mode: target_condition
+    target: snow
+    effect: particle
+
+    snow:
+      enabled: true
+
+      particle:
+        prob: 0.3
+        snowflake_count_range: [300, 1200]
+        snowflake_radius_range: [1, 3]
+        alpha_range: [0.15, 0.35]

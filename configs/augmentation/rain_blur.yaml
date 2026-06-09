@@ -1,0 +1,24 @@
+experiment:
+  name: augmentation_rain_blur
+  group: augmentation
+
+augmentation:
+  enabled: true
+  name: rain_blur
+
+  basic:
+    color_jitter:
+      enabled: false
+
+  weather:
+    enabled: true
+    mode: target_condition
+    target: rain
+    effect: blur
+
+    rain:
+      enabled: true
+
+      blur:
+        prob: 0.3
+        blur_radius_range: [0.5, 1.5]

@@ -1,0 +1,24 @@
+experiment:
+  name: augmentation_snow_whiteness
+  group: augmentation
+
+augmentation:
+  enabled: true
+  name: snow_whiteness
+
+  basic:
+    color_jitter:
+      enabled: false
+
+  weather:
+    enabled: true
+    mode: target_condition
+    target: snow
+    effect: whiteness
+
+    snow:
+      enabled: true
+
+      whiteness:
+        prob: 0.3
+        whiteness_alpha_range: [0.05, 0.18]

@@ -1,0 +1,24 @@
+experiment:
+  name: augmentation_night_noise
+  group: augmentation
+
+augmentation:
+  enabled: true
+  name: night_noise
+
+  basic:
+    color_jitter:
+      enabled: false
+
+  weather:
+    enabled: true
+    mode: target_condition
+    target: night
+    effect: noise
+
+    night:
+      enabled: true
+
+      noise:
+        prob: 0.3
+        noise_std_range: [0.005, 0.03]

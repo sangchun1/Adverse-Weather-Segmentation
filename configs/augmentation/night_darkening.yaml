@@ -1,0 +1,24 @@
+experiment:
+  name: augmentation_night_darkening
+  group: augmentation
+
+augmentation:
+  enabled: true
+  name: night_darkening
+
+  basic:
+    color_jitter:
+      enabled: false
+
+  weather:
+    enabled: true
+    mode: target_condition
+    target: night
+    effect: darkening
+
+    night:
+      enabled: true
+
+      darkening:
+        prob: 0.3
+        brightness_factor_range: [0.4, 0.85]

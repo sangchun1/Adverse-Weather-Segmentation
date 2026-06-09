@@ -1,0 +1,25 @@
+experiment:
+  name: augmentation_fog_haze
+  group: augmentation
+
+augmentation:
+  enabled: true
+  name: fog_haze
+
+  basic:
+    color_jitter:
+      enabled: false
+
+  weather:
+    enabled: true
+    mode: target_condition
+    target: fog
+    effect: haze
+
+    fog:
+      enabled: true
+
+      haze:
+        prob: 0.3
+        intensity_range: [0.15, 0.4]
+        atmospheric_light_range: [180, 255]
