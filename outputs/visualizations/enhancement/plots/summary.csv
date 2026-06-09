@@ -3,3 +3,5 @@ none,None,0.72721630,0.00000000,406,outputs/results/enhancement/none,outputs/res
 gamma,Gamma,0.73128337,0.00406706,406,outputs/results/enhancement/gamma,outputs/results/enhancement/gamma/eval_val.json
 clahe,CLAHE,0.72320575,-0.00401056,406,outputs/results/enhancement/clahe,outputs/results/enhancement/clahe/eval_val.json
 gamma_clahe,Gamma + CLAHE,0.72357237,-0.00364393,406,outputs/results/enhancement/gamma_clahe,outputs/results/enhancement/gamma_clahe/eval_val.json
+fem,Fem,0.72463316,-0.00258315,406,outputs/results/enhancement/fem,outputs/results/enhancement/fem/eval_val.json
+gamma_fem,Gamma Fem,0.72365421,-0.00356209,406,outputs/results/enhancement/gamma_fem,outputs/results/enhancement/gamma_fem/eval_val.json

@@ -1,0 +1,21 @@
+experiment:
+  name: fem_stage34
+  group: enhancement
+
+# Model-level frequency module experiment.
+# Other settings are inherited from configs/proposed.yaml.
+# Enhancement preprocessing is disabled here so FEM effect can be isolated.
+enhancement:
+  enabled: false
+  name: none
+  apply_to: all
+  apply_conditions: all
+
+model:
+  name: "segformer"
+  fem:
+    enabled: true
+    pairs:
+      - [3, 4]
+    low_radius_ratio: 0.25
+    init_gamma: 0.0

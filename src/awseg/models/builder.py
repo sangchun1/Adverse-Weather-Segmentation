@@ -23,7 +23,7 @@ def build_model(config: Dict[str, Any]) -> nn.Module:
         )
 
     if model_name in {"segformer", "segformer_b2", "segformer-b2"}:
-        night_adapter_config = model_config.get("night_adapter", {}) or {}
+        fem_config = model_config.get("fem", {}) or {}
         return SegFormerModel(
             pretrained_name=str(
                 model_config.get(
@@ -38,21 +38,10 @@ def build_model(config: Dict[str, Any]) -> nn.Module:
             train_norm_when_frozen=bool(model_config.get("train_norm_when_frozen", False)),
             align_corners=bool(model_config.get("align_corners", False)),
             ignore_mismatched_sizes=model_config.get("ignore_mismatched_sizes", None),
-            use_night_adapter=bool(night_adapter_config.get("enabled", False)),
-            night_adapter_stages=night_adapter_config.get("stages", [3, 4]),
-            night_adapter_num_bands=int(night_adapter_config.get("num_bands", 8)),
-            night_adapter_num_tokens=int(night_adapter_config.get("num_tokens", 16)),
-            night_adapter_randomize_t=float(night_adapter_config.get("randomize_t", 0.3)),
-            night_adapter_randomize_probability=float(
-                night_adapter_config.get("randomize_probability", 1.0)
-            ),
-            night_adapter_randomize_groups=night_adapter_config.get(
-                "randomize_groups",
-                ["H", "M1", "M2"],
-            ),
-            night_adapter_zero_init_fusion=bool(
-                night_adapter_config.get("zero_init_fusion", True)
-            ),
+            use_fem=bool(fem_config.get("enabled", False)),
+            fem_pairs=fem_config.get("pairs", [[3, 4]]),
+            fem_low_radius_ratio=float(fem_config.get("low_radius_ratio", 0.25)),
+            fem_init_gamma=float(fem_config.get("init_gamma", 0.0)),
         )
 
     raise ValueError(
