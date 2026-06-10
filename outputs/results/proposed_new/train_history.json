@@ -1,0 +1,46 @@
+[
+  {
+    "epoch": 1,
+    "global_step": 200,
+    "train_loss": 0.6909560343623161,
+    "train_miou": 0.6078386902809143,
+    "val_loss": 0.5789990113873787,
+    "val_miou": 0.6654632687568665,
+    "lr": 7.999999999999999e-05,
+    "lr_dict": {
+      "encoder_decay": 7.999999999999999e-05,
+      "encoder_no_decay": 7.999999999999999e-05,
+      "head_decay": 0.00031999999999999997,
+      "head_no_decay": 0.00031999999999999997
+    },
+    "best_miou": 0.6654632687568665,
+    "is_best": true,
+    "early_bad_epochs": 0,
+    "lr_encoder_decay": 7.999999999999999e-05,
+    "lr_encoder_no_decay": 7.999999999999999e-05,
+    "lr_head_decay": 0.00031999999999999997,
+    "lr_head_no_decay": 0.00031999999999999997
+  },
+  {
+    "epoch": 2,
+    "global_step": 400,
+    "train_loss": 0.5238918866217136,
+    "train_miou": 0.6862190365791321,
+    "val_loss": 0.5351036287880884,
+    "val_miou": 0.678755521774292,
+    "lr": 0.00012,
+    "lr_dict": {
+      "encoder_decay": 0.00012,
+      "encoder_no_decay": 0.00012,
+      "head_decay": 0.00048,
+      "head_no_decay": 0.00048
+    },
+    "best_miou": 0.678755521774292,
+    "is_best": true,
+    "early_bad_epochs": 0,
+    "lr_encoder_decay": 0.00012,
+    "lr_encoder_no_decay": 0.00012,
+    "lr_head_decay": 0.00048,
+    "lr_head_no_decay": 0.00048
+  }
+]

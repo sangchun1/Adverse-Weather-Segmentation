@@ -230,5 +230,7 @@ outputs/wandb/
 *.ckpt
 outputs/tmp_configs/
 third_party
+outputs/tuning/*/trials/
+*.db
 
 z.md

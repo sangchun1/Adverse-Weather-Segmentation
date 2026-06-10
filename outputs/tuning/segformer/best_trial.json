@@ -1,0 +1,28 @@
+{
+  "study_name": "segformer_optuna",
+  "direction": "maximize",
+  "metric": "best_miou",
+  "best_trial_number": 26,
+  "best_value": 0.7236763834953308,
+  "best_params": {
+    "freeze_mode": "full",
+    "dropout": 0.05,
+    "drop_path_rate": 0.15,
+    "encoder_lr_mult": 1.0,
+    "head_lr_mult": 4.0,
+    "lr": 0.00012
+  },
+  "best_user_attrs": {
+    "checkpoint_path": "outputs/tuning/segformer/trials/trial_0026/checkpoints/best_miou.pth",
+    "config_path": "outputs/tuning/segformer/configs/trial_0026.yaml",
+    "metric_file": "outputs/tuning/segformer/results/trial_0026/train.json",
+    "metric_key": "best_miou",
+    "result_dir": "outputs/tuning/segformer/results/trial_0026"
+  },
+  "base_config": "configs/proposed.yaml",
+  "condition": "all",
+  "output_dir": "outputs/tuning/segformer",
+  "trials_csv": "outputs/tuning/segformer/trials.csv",
+  "best_config": "outputs/tuning/segformer/best_config.yaml",
+  "created_at": "2026-06-10T14:49:25"
+}

@@ -51,11 +51,12 @@ import yaml
 
 
 DEFAULT_SEARCH_SPACE: dict[str, list[Any]] = {
-    "freeze_mode": ["full", "freeze_s1", "freeze_s12", "freeze_s123"],
-    "encoder_lr_mult": [0.1, 0.3, 0.5, 1.0],
-    "head_lr_mult": [1.0, 3.0],
-    "dropout": [0.0, 0.1, 0.2],
-    "drop_path_rate": [0.0, 0.05, 0.1, 0.2],
+    "freeze_mode": ["full"],
+    "lr": [0.00008, 0.0001, 0.00012],
+    "encoder_lr_mult": [1.0],
+    "head_lr_mult": [3.0, 4.0, 5.0],
+    "dropout": [0.05, 0.1],
+    "drop_path_rate": [0.05, 0.1, 0.15],
 }
 
 DEFAULT_PRETRAINED_NAME = "nvidia/segformer-b2-finetuned-cityscapes-1024-1024"
@@ -631,6 +632,8 @@ def main() -> None:
         objective,
         n_trials=n_trials,
         timeout=args.timeout,
+        catch=(Exception,),
+        gc_after_trial=True,
     )
 
     trials_csv_path = output_dir / "trials.csv"

@@ -1,2 +1,2 @@
 experiment,display_name,overall_miou,delta_vs_baseline,num_samples,dir,overall_json
-proposed,Proposed,0.72102755,0.00000000,406,outputs/results/proposed,outputs/results/proposed/eval_val.json
+proposed,Proposed,0.71809417,0.00000000,406,outputs/results/proposed,outputs/results/proposed/eval_val.json

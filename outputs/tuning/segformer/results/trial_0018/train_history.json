@@ -1,0 +1,134 @@
+[
+  {
+    "epoch": 1,
+    "global_step": 200,
+    "train_loss": 0.6909535621106625,
+    "train_miou": 0.6078381538391113,
+    "val_loss": 0.5789992644869048,
+    "val_miou": 0.6654581427574158,
+    "lr": 0.00031999999999999997,
+    "lr_dict": {
+      "encoder_decay": 7.999999999999999e-05,
+      "encoder_no_decay": 7.999999999999999e-05,
+      "head_decay": 0.00031999999999999997,
+      "head_no_decay": 0.00031999999999999997
+    },
+    "best_miou": 0.6654581427574158,
+    "is_best": true,
+    "early_bad_epochs": 0,
+    "lr_encoder_decay": 7.999999999999999e-05,
+    "lr_encoder_no_decay": 7.999999999999999e-05,
+    "lr_head_decay": 0.00031999999999999997,
+    "lr_head_no_decay": 0.00031999999999999997
+  },
+  {
+    "epoch": 2,
+    "global_step": 400,
+    "train_loss": 0.5238883715867996,
+    "train_miou": 0.686220645904541,
+    "val_loss": 0.5350987121389417,
+    "val_miou": 0.6787750124931335,
+    "lr": 0.00048,
+    "lr_dict": {
+      "encoder_decay": 0.00012,
+      "encoder_no_decay": 0.00012,
+      "head_decay": 0.00048,
+      "head_no_decay": 0.00048
+    },
+    "best_miou": 0.6787750124931335,
+    "is_best": true,
+    "early_bad_epochs": 0,
+    "lr_encoder_decay": 0.00012,
+    "lr_encoder_no_decay": 0.00012,
+    "lr_head_decay": 0.00048,
+    "lr_head_no_decay": 0.00048
+  },
+  {
+    "epoch": 3,
+    "global_step": 600,
+    "train_loss": 0.4885126057267189,
+    "train_miou": 0.6894113421440125,
+    "val_loss": 0.5433617884595993,
+    "val_miou": 0.6669933795928955,
+    "lr": 0.00048,
+    "lr_dict": {
+      "encoder_decay": 0.00012,
+      "encoder_no_decay": 0.00012,
+      "head_decay": 0.00048,
+      "head_no_decay": 0.00048
+    },
+    "best_miou": 0.6787750124931335,
+    "is_best": false,
+    "early_bad_epochs": 1,
+    "lr_encoder_decay": 0.00012,
+    "lr_encoder_no_decay": 0.00012,
+    "lr_head_decay": 0.00048,
+    "lr_head_no_decay": 0.00048
+  },
+  {
+    "epoch": 4,
+    "global_step": 800,
+    "train_loss": 0.4226177874207497,
+    "train_miou": 0.7346113324165344,
+    "val_loss": 0.5351575184338199,
+    "val_miou": 0.6847152709960938,
+    "lr": 0.00045176470588235296,
+    "lr_dict": {
+      "encoder_decay": 0.00011294117647058824,
+      "encoder_no_decay": 0.00011294117647058824,
+      "head_decay": 0.00045176470588235296,
+      "head_no_decay": 0.00045176470588235296
+    },
+    "best_miou": 0.6847152709960938,
+    "is_best": true,
+    "early_bad_epochs": 0,
+    "lr_encoder_decay": 0.00011294117647058824,
+    "lr_encoder_no_decay": 0.00011294117647058824,
+    "lr_head_decay": 0.00045176470588235296,
+    "lr_head_no_decay": 0.00045176470588235296
+  },
+  {
+    "epoch": 5,
+    "global_step": 1000,
+    "train_loss": 0.38987266406416893,
+    "train_miou": 0.7618491053581238,
+    "val_loss": 0.5351936159462765,
+    "val_miou": 0.690850019454956,
+    "lr": 0.0004235294117647059,
+    "lr_dict": {
+      "encoder_decay": 0.00010588235294117647,
+      "encoder_no_decay": 0.00010588235294117647,
+      "head_decay": 0.0004235294117647059,
+      "head_no_decay": 0.0004235294117647059
+    },
+    "best_miou": 0.690850019454956,
+    "is_best": true,
+    "early_bad_epochs": 0,
+    "lr_encoder_decay": 0.00010588235294117647,
+    "lr_encoder_no_decay": 0.00010588235294117647,
+    "lr_head_decay": 0.0004235294117647059,
+    "lr_head_no_decay": 0.0004235294117647059
+  },
+  {
+    "epoch": 6,
+    "global_step": 1200,
+    "train_loss": 0.35811366148293017,
+    "train_miou": 0.7781757116317749,
+    "val_loss": 0.5287134982094976,
+    "val_miou": 0.6918883919715881,
+    "lr": 0.0003952941176470588,
+    "lr_dict": {
+      "encoder_decay": 9.88235294117647e-05,
+      "encoder_no_decay": 9.88235294117647e-05,
+      "head_decay": 0.0003952941176470588,
+      "head_no_decay": 0.0003952941176470588
+    },
+    "best_miou": 0.6918883919715881,
+    "is_best": true,
+    "early_bad_epochs": 0,
+    "lr_encoder_decay": 9.88235294117647e-05,
+    "lr_encoder_no_decay": 9.88235294117647e-05,
+    "lr_head_decay": 0.0003952941176470588,
+    "lr_head_no_decay": 0.0003952941176470588
+  }
+]
