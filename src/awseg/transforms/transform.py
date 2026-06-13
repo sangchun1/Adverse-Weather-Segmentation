@@ -6,8 +6,8 @@ import numpy as np
 import torch
 from PIL import Image
 
-from awseg.transforms.enhancement import build_enhancer
 from awseg.transforms.augmentation import build_augmentation
+from awseg.transforms.enhancement import build_enhancer
 from awseg.transforms.weather_augmentation import build_weather_augmentation
 
 
@@ -54,7 +54,6 @@ def _to_tensor(
     """Convert PIL image/mask to normalized tensors."""
     image_np = np.array(image, dtype=np.float32) / 255.0
     image_np = (image_np - mean) / std
-
     image_tensor = torch.from_numpy(image_np).permute(2, 0, 1).float()
 
     if mask is None:
@@ -62,7 +61,6 @@ def _to_tensor(
 
     mask_np = np.array(mask, dtype=np.int64)
     mask_tensor = torch.from_numpy(mask_np).long()
-
     return image_tensor, mask_tensor
 
 
@@ -102,7 +100,8 @@ def _call_optional_transform(
         return output, mask
 
     raise TypeError(
-        "Augmentation transform must return PIL Image or tuple[PIL Image, Optional[PIL Image]]."
+        "Augmentation transform must return PIL Image or "
+        "tuple[PIL Image, Optional[PIL Image]]."
     )
 
 
@@ -122,7 +121,7 @@ class SegmentationTransform:
         - Image uses bilinear interpolation.
         - Mask uses nearest-neighbor interpolation to preserve class IDs.
         - Enhancement can be applied to train/val/test depending on config.
-        - Augmentation is applied only for train split.
+        - Basic/weather augmentation is applied only for train split.
         - Frequency augmentation / frequency map concat are intentionally excluded.
     """
 
@@ -138,7 +137,6 @@ class SegmentationTransform:
     ) -> None:
         self.height, self.width = size
         self.split = str(split).lower()
-
         self.mean = np.array(mean, dtype=np.float32)
         self.std = np.array(std, dtype=np.float32)
 
@@ -152,7 +150,6 @@ class SegmentationTransform:
         self.enhancer = enhancer
         self.augmentation = augmentation
         self.weather_augmentation = weather_augmentation
-
         self.image_resample = _get_resample_mode("bilinear")
         self.mask_resample = _get_resample_mode("nearest")
 
@@ -163,6 +160,7 @@ class SegmentationTransform:
     ) -> Image.Image:
         if self.enhancer is None:
             return image
+
         image = self.enhancer(image, condition=condition)
         return _ensure_rgb(image)
 
@@ -187,7 +185,6 @@ class SegmentationTransform:
             mask=mask,
             condition=condition,
         )
-
         return _ensure_rgb(image), mask
 
     def _resize(
@@ -209,7 +206,6 @@ class SegmentationTransform:
         condition: Optional[str] = None,
     ) -> tuple[torch.Tensor, Optional[torch.Tensor]]:
         image = _ensure_rgb(image)
-
         image = self._apply_enhancement(image=image, condition=condition)
         image, mask = self._apply_train_augmentation(
             image=image,
@@ -281,9 +277,6 @@ def _build_basic_augmentation(config: dict[str, Any], split: str) -> Any:
     if split != "train":
         return None
 
-    if build_augmentation is None:
-        return None
-
     augmentation_config = config.get("augmentation", {})
     if not isinstance(augmentation_config, dict):
         return None
@@ -296,9 +289,6 @@ def _build_basic_augmentation(config: dict[str, Any], split: str) -> Any:
 
 def _build_weather_augmentation(config: dict[str, Any], split: str) -> Any:
     if split != "train":
-        return None
-
-    if build_weather_augmentation is None:
         return None
 
     augmentation_config = config.get("augmentation", {})
@@ -326,10 +316,8 @@ def build_transform(config: dict[str, Any], split: str) -> SegmentationTransform
         SegmentationTransform.
     """
     split = str(split).lower()
-
     data_config = _get_data_config(config)
     height, width = _get_input_size(data_config)
-
     mean = tuple(data_config.get("mean", [0.485, 0.456, 0.406]))
     std = tuple(data_config.get("std", [0.229, 0.224, 0.225]))
 

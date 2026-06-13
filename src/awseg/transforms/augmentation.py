@@ -37,7 +37,10 @@ def _get_color_jitter_config(config: dict[str, Any]) -> dict[str, Any]:
         return dict(aug_config["color_jitter"])
 
     basic_config = aug_config.get("basic", {})
-    if isinstance(basic_config, dict) and isinstance(basic_config.get("color_jitter"), dict):
+    if isinstance(basic_config, dict) and isinstance(
+        basic_config.get("color_jitter"),
+        dict,
+    ):
         return dict(basic_config["color_jitter"])
 
     return {}
@@ -156,11 +159,11 @@ def build_augmentation(
     config: dict[str, Any],
     split: str = "train",
 ) -> IdentityAugmentation | ColorJitterAugmentation:
-    """Build train-time augmentation.
+    """Build train-time basic augmentation.
 
     Current main-branch policy:
-        - Only color jitter is supported.
-        - horizontal_flip and class_balanced_crop are intentionally removed.
+        - Basic augmentation supports only color jitter.
+        - Weather-specific augmentation is handled separately by weather_augmentation.py.
         - Augmentation is disabled for val/test.
     """
     if str(split).lower() != "train":
@@ -181,6 +184,17 @@ def build_augmentation(
         color_jitter_config.get("enabled", name in {"jitter", "color_jitter"})
     )
 
+    # weather augmentation은 transform.py에서 별도 build_weather_augmentation으로 처리한다.
+    # 따라서 final.yaml처럼 weather.enabled=true인 config에서 color_jitter가 꺼져 있거나
+    # augmentation.name이 weather 계열 이름이어도 basic augmentation 단계에서는 no-op으로 넘긴다.
+    weather_config = aug_config.get("weather", {})
+    weather_enabled = isinstance(weather_config, dict) and bool(
+        weather_config.get("enabled", False)
+    )
+
+    if weather_enabled and not color_jitter_enabled:
+        return IdentityAugmentation()
+
     if name in {"jitter", "color_jitter"} or color_jitter_enabled:
         if not color_jitter_enabled:
             return IdentityAugmentation()
@@ -195,5 +209,6 @@ def build_augmentation(
 
     raise ValueError(
         f"Unsupported augmentation name: {name!r}. "
-        "Current main branch supports only: none, jitter/color_jitter."
+        "Current main branch supports basic augmentation only for none, jitter/color_jitter. "
+        "Weather-specific augmentation should be configured under augmentation.weather."
     )

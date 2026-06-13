@@ -151,17 +151,21 @@ def build_eval_dataloader(
     if condition is not None:
         dataset = filter_dataset_by_condition(dataset, condition=condition, split=split)
 
-    if batch_size is None:
-        batch_size = int(config["train"]["batch_size"])
+    eval_config = config.get("evaluate", {})
+    train_config = config.get("train", {})
 
-    num_workers = int(config["train"].get("num_workers", 4))
+    if batch_size is None:
+        batch_size = int(eval_config.get("batch_size", train_config.get("batch_size", 4)))
+
+    num_workers = int(eval_config.get("num_workers", train_config.get("num_workers", 4)))
+    pin_memory = bool(eval_config.get("pin_memory", train_config.get("pin_memory", torch.cuda.is_available())))
 
     return DataLoader(
         dataset,
         batch_size=batch_size,
         shuffle=False,
         num_workers=num_workers,
-        pin_memory=torch.cuda.is_available(),
+        pin_memory=pin_memory,
         drop_last=False,
     )
 
