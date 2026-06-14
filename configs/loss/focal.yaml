@@ -1,8 +1,0 @@
-experiment:
-  name: loss_focal
-  group: loss
-
-loss:
-  name: "focal"
-  gamma: 2.0
-  ignore_index: 255

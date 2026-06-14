@@ -112,7 +112,7 @@ class SegmentationTransform:
         1. Convert image to RGB.
         2. Apply optional enhancement.
         3. Apply optional train-time basic augmentation.
-        4. Apply optional train-time weather augmentation.
+        4. Apply optional weather augmentation depending on config.
         5. Resize image and mask.
         6. Normalize image.
         7. Convert image and mask to torch.Tensor.
@@ -121,7 +121,8 @@ class SegmentationTransform:
         - Image uses bilinear interpolation.
         - Mask uses nearest-neighbor interpolation to preserve class IDs.
         - Enhancement can be applied to train/val/test depending on config.
-        - Basic/weather augmentation is applied only for train split.
+        - Basic augmentation is applied only for train split.
+        - Weather augmentation can be applied to train/val/test through augmentation.weather.apply_splits.
         - Frequency augmentation / frequency map concat are intentionally excluded.
     """
 
@@ -164,27 +165,30 @@ class SegmentationTransform:
         image = self.enhancer(image, condition=condition)
         return _ensure_rgb(image)
 
-    def _apply_train_augmentation(
+    def _apply_augmentation(
         self,
         image: Image.Image,
         mask: Optional[Image.Image],
         condition: Optional[str],
     ) -> tuple[Image.Image, Optional[Image.Image]]:
-        if self.split != "train":
-            return image, mask
+        # Basic augmentation, e.g. color jitter, is still train-only.
+        if self.split == "train":
+            image, mask = _call_optional_transform(
+                transform=self.augmentation,
+                image=image,
+                mask=mask,
+                condition=condition,
+            )
 
-        image, mask = _call_optional_transform(
-            transform=self.augmentation,
-            image=image,
-            mask=mask,
-            condition=condition,
-        )
+        # Weather augmentation can be applied to train/val/test
+        # depending on augmentation.weather.apply_splits.
         image, mask = _call_optional_transform(
             transform=self.weather_augmentation,
             image=image,
             mask=mask,
             condition=condition,
         )
+
         return _ensure_rgb(image), mask
 
     def _resize(
@@ -207,7 +211,7 @@ class SegmentationTransform:
     ) -> tuple[torch.Tensor, Optional[torch.Tensor]]:
         image = _ensure_rgb(image)
         image = self._apply_enhancement(image=image, condition=condition)
-        image, mask = self._apply_train_augmentation(
+        image, mask = self._apply_augmentation(
             image=image,
             mask=mask,
             condition=condition,
@@ -287,10 +291,25 @@ def _build_basic_augmentation(config: dict[str, Any], split: str) -> Any:
     return build_augmentation(config=config, split=split)
 
 
-def _build_weather_augmentation(config: dict[str, Any], split: str) -> Any:
-    if split != "train":
-        return None
+def _is_split_enabled_for_weather(weather_config: dict[str, Any], split: str) -> bool:
+    split = str(split).lower()
 
+    apply_splits = weather_config.get("apply_splits", ["train"])
+
+    if isinstance(apply_splits, str):
+        apply_splits = apply_splits.strip().lower()
+        if apply_splits == "all":
+            return True
+        return split == apply_splits
+
+    if isinstance(apply_splits, (list, tuple, set)):
+        normalized = {str(item).strip().lower() for item in apply_splits}
+        return "all" in normalized or split in normalized
+
+    return split == "train"
+
+
+def _build_weather_augmentation(config: dict[str, Any], split: str) -> Any:
     augmentation_config = config.get("augmentation", {})
     if not isinstance(augmentation_config, dict):
         return None
@@ -300,6 +319,9 @@ def _build_weather_augmentation(config: dict[str, Any], split: str) -> Any:
         return None
 
     if not bool(weather_config.get("enabled", False)):
+        return None
+
+    if not _is_split_enabled_for_weather(weather_config, split):
         return None
 
     return build_weather_augmentation(config=config, split=split)

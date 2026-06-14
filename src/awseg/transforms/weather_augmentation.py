@@ -532,8 +532,6 @@ def build_weather_augmentation(
         condition_specific:
             Apply each enabled condition's configured single effect to matching samples.
     """
-    if str(split).lower() != "train":
-        return IdentityWeatherAugmentation()
 
     weather_config = _get_weather_config(config)
     if not bool(weather_config.get("enabled", False)):

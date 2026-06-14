@@ -3,12 +3,15 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict
 
 import torch
+from torch.amp import GradScaler, autocast
 from torch.utils.data import ConcatDataset, DataLoader, Subset
+from tqdm import tqdm
 
 from awseg.dataset import build_dataset, get_class_names
 from awseg.logger import build_logger
@@ -86,6 +89,11 @@ def save_json(data: Dict[str, Any] | list[Dict[str, Any]], path: str | Path) -> 
 
 def get_timestamp() -> str:
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def is_amp_enabled(config: Dict[str, Any], device: torch.device) -> bool:
+    """Return whether CUDA AMP should be used for train/validation."""
+    return bool(config.get("train", {}).get("amp", False)) and device.type == "cuda"
 
 
 def get_result_suffix(condition: str | None, include_normal: bool) -> str:
@@ -436,6 +444,7 @@ def load_resume_checkpoint(
     model: torch.nn.Module,
     optimizer: torch.optim.Optimizer,
     scheduler: torch.optim.lr_scheduler.LRScheduler | None,
+    scaler: GradScaler | None,
     device: torch.device,
 ) -> tuple[int, float, int, int]:
     checkpoint = torch.load(resume_path, map_location=device)
@@ -445,6 +454,8 @@ def load_resume_checkpoint(
         optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
     if scheduler is not None and checkpoint.get("scheduler_state_dict") is not None:
         scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
+    if scaler is not None and checkpoint.get("scaler_state_dict") is not None:
+        scaler.load_state_dict(checkpoint["scaler_state_dict"])
 
     start_epoch = int(checkpoint.get("epoch", 0)) + 1
     best_miou = float(checkpoint.get("best_miou", 0.0))
@@ -464,6 +475,7 @@ def train_one_epoch(
     config: Dict[str, Any],
     logger: Any,
     global_step: int,
+    scaler: GradScaler | None = None,
 ) -> tuple[Dict[str, float], int]:
     model.train()
     loss_meter = AverageMeter("train_loss")
@@ -475,29 +487,69 @@ def train_one_epoch(
             config.get("wandb", {}).get("log_interval", 20),
         )
     )
+    use_amp = is_amp_enabled(config=config, device=device)
+    grad_clip_norm = config.get("train", {}).get("grad_clip_norm", None)
 
-    for batch_idx, batch in enumerate(dataloader):
+    progress_bar = tqdm(
+        dataloader,
+        total=len(dataloader),
+        desc=f"Epoch {epoch} Train",
+        dynamic_ncols=True,
+        mininterval=5,
+        file=sys.stdout,
+        leave=True,
+    )
+
+    for batch_idx, batch in enumerate(progress_bar):
         images = batch["image"].to(device, non_blocking=True)
         masks = batch["mask"].to(device, non_blocking=True)
 
         optimizer.zero_grad(set_to_none=True)
-        logits = model(images)
-        loss = criterion(logits, masks)
-        loss.backward()
-        optimizer.step()
+
+        if use_amp:
+            if scaler is None:
+                raise ValueError("AMP is enabled but GradScaler is not initialized.")
+
+            with autocast(device_type=device.type, enabled=use_amp):
+                logits = model(images)
+                loss = criterion(logits, masks)
+
+            scaler.scale(loss).backward()
+
+            if grad_clip_norm is not None:
+                scaler.unscale_(optimizer)
+                torch.nn.utils.clip_grad_norm_(
+                    model.parameters(),
+                    max_norm=float(grad_clip_norm),
+                )
+
+            scaler.step(optimizer)
+            scaler.update()
+        else:
+            logits = model(images)
+            loss = criterion(logits, masks)
+            loss.backward()
+
+            if grad_clip_norm is not None:
+                torch.nn.utils.clip_grad_norm_(
+                    model.parameters(),
+                    max_norm=float(grad_clip_norm),
+                )
+
+            optimizer.step()
 
         batch_size = images.size(0)
         loss_meter.update(loss.item(), n=batch_size)
         metric.update(logits.detach(), masks)
 
         if batch_idx % log_interval == 0:
-            lr_dict = get_lr_dict(optimizer)
-            print(
-                f"Epoch [{epoch}] "
-                f"Train [{batch_idx:04d}/{len(dataloader):04d}] "
-                f"loss: {loss_meter.avg:.4f} "
-                f"lr: {format_lr_dict(lr_dict)}"
+            progress_bar.set_postfix(
+                loss=f"{loss_meter.avg:.4f}",
+                lr=f"{get_primary_lr(optimizer):.2e}",
             )
+
+        if batch_idx % log_interval == 0:
+            lr_dict = get_lr_dict(optimizer)
 
             log_data = {
                 "train/iter_loss": float(loss.item()),
@@ -523,21 +575,35 @@ def validate_one_epoch(
     criterion: torch.nn.Module,
     metric: SegmentationMetric,
     device: torch.device,
+    config: Dict[str, Any],
 ) -> Dict[str, Any]:
     model.eval()
     loss_meter = AverageMeter("val_loss")
     metric.reset()
+    use_amp = is_amp_enabled(config=config, device=device)
 
-    for batch in dataloader:
+    progress_bar = tqdm(
+        dataloader,
+        total=len(dataloader),
+        desc="Validation",
+        dynamic_ncols=True,
+        mininterval=5,
+        file=sys.stdout,
+        leave=True,
+    )
+
+    for batch in progress_bar:
         images = batch["image"].to(device, non_blocking=True)
         masks = batch["mask"].to(device, non_blocking=True)
 
-        logits = model(images)
-        loss = criterion(logits, masks)
+        with autocast(device_type=device.type, enabled=use_amp):
+            logits = model(images)
+            loss = criterion(logits, masks)
 
         batch_size = images.size(0)
         loss_meter.update(loss.item(), n=batch_size)
         metric.update(logits, masks)
+        progress_bar.set_postfix(loss=f"{loss_meter.avg:.4f}")
 
     result = metric.compute()
     return {
@@ -592,7 +658,11 @@ def main() -> None:
     )
     class_names = get_class_names()
 
+    use_amp = is_amp_enabled(config=config, device=device)
+    scaler = GradScaler(device.type, enabled=use_amp)
+
     print(f"Model: {config['model']['name']}")
+    print(f"AMP enabled: {use_amp}")
     if args.condition is not None:
         print(f"Condition filter: {args.condition}")
     print(f"Include normal data: {args.include_normal}")
@@ -633,6 +703,7 @@ def main() -> None:
             model=model,
             optimizer=optimizer,
             scheduler=scheduler,
+            scaler=scaler,
             device=device,
         )
         print(f"Resumed from {args.resume}")
@@ -665,6 +736,7 @@ def main() -> None:
                 config=config,
                 logger=logger,
                 global_step=global_step,
+                scaler=scaler,
             )
 
             val_metrics = validate_one_epoch(
@@ -673,6 +745,7 @@ def main() -> None:
                 criterion=criterion,
                 metric=metric,
                 device=device,
+                config=config,
             )
 
             if scheduler is not None:
@@ -732,6 +805,8 @@ def main() -> None:
                 "model_state_dict": model.state_dict(),
                 "optimizer_state_dict": optimizer.state_dict(),
                 "scheduler_state_dict": scheduler.state_dict() if scheduler is not None else None,
+                "scaler_state_dict": scaler.state_dict() if use_amp else None,
+                "amp_enabled": use_amp,
                 "best_miou": best_miou,
                 "early_bad_epochs": early_bad_epochs,
                 "early_stopping": early_config,

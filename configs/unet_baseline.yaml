@@ -1,0 +1,135 @@
+# 베이스라인 설정
+# Model: U-Net from scratch
+# Loss: CrossEntropyLoss
+# Augmentation: none
+# Enhancement: none
+
+experiment:
+  name: unet_baseline
+  group: baseline
+
+seed: 42
+
+data:
+  root: "."
+  split_dir: "data/splits"
+  train_csv: "train.csv"
+  val_csv: "val.csv"
+  test_csv: "test.csv"
+
+  input_width: 1024
+  input_height: 512
+  num_classes: 19
+  ignore_index: 255
+
+  # ImageNet normalization
+  mean: [0.485, 0.456, 0.406]
+  std: [0.229, 0.224, 0.225]
+
+  class_names:
+    - road
+    - sidewalk
+    - building
+    - wall
+    - fence
+    - pole
+    - traffic light
+    - traffic sign
+    - vegetation
+    - terrain
+    - sky
+    - person
+    - rider
+    - car
+    - truck
+    - bus
+    - train
+    - motorcycle
+    - bicycle
+
+model:
+  name: "unet"
+  in_channels: 3
+  num_classes: 19
+  base_channels: 64
+
+loss:
+  name: "cross_entropy"
+  ignore_index: 255
+
+optimizer:
+  name: "adamw"
+  lr: 0.001
+  weight_decay: 0.0001
+
+scheduler:
+  name: "cosine_annealing"
+  T_max: 50
+  eta_min: 0.000001
+
+train:
+  epochs: 50
+  batch_size: 8
+  num_workers: 4
+  pin_memory: true
+  amp: true
+  grad_clip_norm: null
+  log_interval: 20
+  val_interval: 1
+
+augmentation:
+  enabled: false
+  name: "none"
+
+  basic:
+    color_jitter:
+      enabled: false
+      prob: 0.0
+
+  weather:
+    enabled: false
+    mode: "none"
+
+enhancement:
+  enabled: false
+  name: "none"
+  apply_to: "all"
+  apply_conditions: "all"
+
+checkpoint:
+  save_dir: "outputs/checkpoints/unet_baseline"
+  save_best_name: "best_miou.pth"
+  save_last_name: "last.pth"
+  monitor: "val_miou"
+  mode: "max"
+
+early_stopping:
+  enabled: true
+  monitor: "val_miou"
+  mode: "max"
+  patience: 10
+  min_delta: 0.0001
+
+wandb:
+  enabled: true
+  project: "adverse-weather-segmentation"
+  entity: null
+  run_name: "unet_baseline"
+  tags:
+    - baseline
+    - unet
+    - acdc
+  notes: "U-Net from scratch baseline with CrossEntropyLoss."
+  dir: "outputs"
+
+evaluate:
+  batch_size: 8
+  num_workers: 4
+  save_predictions: false
+  output_dir: "outputs/results/unet_baseline"
+
+output:
+  checkpoint_dir: "outputs/checkpoints/unet_baseline"
+  result_dir: "outputs/results/unet_baseline"
+  log_dir: "outputs/logs/unet_baseline"
+  visualization_dir: "outputs/visualizations/unet_baseline"

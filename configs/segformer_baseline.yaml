@@ -1,9 +1,12 @@
-# Final model 설정
-# 최종 best 조합을 통합한 config
+# 베이스라인 설정
+# Model: SegFormer-B2
+# Loss: CrossEntropyLoss
+# Augmentation: none
+# Enhancement: none
 
 experiment:
-  name: final
-  group: final
+  name: segformer_baseline
+  group: baseline
 
 seed: 42
 
@@ -57,9 +60,11 @@ model:
   ignore_mismatched_sizes: false
 
 loss:
-  name: "ce_tversky"
+  # loss test 후 best loss로 수정
+  name: "cross_entropy"
   ignore_index: 255
 
+  # hybrid loss 후보들이 공통으로 참조할 수 있는 기본값
   ce_weight: 1.0
   dice_weight: 1.0
 
@@ -70,9 +75,13 @@ loss:
 optimizer:
   name: "adamw"
   lr: 0.00006
+
+  # SegFormer param_groups에서 사용
+  # tuning 후 best 값으로 수정
   use_layerwise_lr: true
   encoder_lr_mult: 1.0
   head_lr_mult: 10.0
+
   weight_decay: 0.01
 
 scheduler:
@@ -93,63 +102,42 @@ train:
   val_interval: 1
 
 augmentation:
-  enabled: true
-  name: "jitter"
-
-  basic:
-    color_jitter:
-      enabled: true
-      prob: 1.0
-      brightness: 0.2
-      contrast: 0.2
-      saturation: 0.1
-      hue: 0.05
+  enabled: false
+  name: "none"
 
   weather:
-    enabled: true
+    enabled: false
     mode: "condition_specific"
-    apply_splits: ["train", "val", "test"]
 
     fog:
-      enabled: true
-      effect: "haze"
-      haze:
-        prob: 1.0
-        intensity_range: [0.15, 0.4]
-        atmospheric_light_range: [180, 255]
+      enabled: false
+      prob: 0.0
 
     rain:
-      enabled: true
-      effect: "streak"
-      streak:
-        prob: 1.0
-        streak_count_range: [150, 600]
-        streak_length_range: [8, 24]
-        streak_angle_range: [-25, 25]
-        alpha_range: [0.1, 0.3]
+      enabled: false
+      prob: 0.0
 
     snow:
       enabled: false
+      prob: 0.0
 
     night:
       enabled: false
+      prob: 0.0
 
 enhancement:
-  enabled: true
-  name: "gamma"
-  gamma: 0.6
-  apply_to: "all"
-  apply_conditions: ["night"]
+  enabled: false
+  name: "none"
 
 checkpoint:
-  save_dir: "outputs/checkpoints/final"
+  save_dir: "outputs/checkpoints/segformer_baseline"
   save_best_name: "best_miou.pth"
   save_last_name: "last.pth"
   monitor: "val_miou"
   mode: "max"
 
 early_stopping:
-  enabled: false
+  enabled: true
   monitor: "val_miou"
   mode: "max"
   patience: 15
@@ -159,28 +147,24 @@ wandb:
   enabled: true
   project: "adverse-weather-segmentation"
   entity: null
-  run_name: "segformer_final"
+  run_name: "segformer_baseline"
   tags:
-    - final
+    - baseline
     - segformer
-    - ce_tversky
-    - jitter
-    - fog_haze
-    - rain_streak
-    - gamma
+    - cross_entropy
     - acdc
     - adverse-weather
-  notes: "Final model with SegFormer, CE+Tversky loss, color jitter, fog/rain weather-specific augmentation, and night gamma enhancement."
+  notes: "SegFormer baseline with CrossEntropyLoss."
   dir: "outputs"
 
 evaluate:
   batch_size: 4
   num_workers: 0
   save_predictions: true
-  output_dir: "outputs/results/final"
+  output_dir: "outputs/results/segformer_baseline"
 
 output:
-  checkpoint_dir: "outputs/checkpoints/final"
-  result_dir: "outputs/results/final"
-  log_dir: "outputs/logs/final"
-  visualization_dir: "outputs/visualizations/final"
+  checkpoint_dir: "outputs/checkpoints/segformer_baseline"
+  result_dir: "outputs/results/segformer_baseline"
+  log_dir: "outputs/logs/segformer_baseline"
+  visualization_dir: "outputs/visualizations/segformer_baseline"

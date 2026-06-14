@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import sys
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
@@ -10,6 +11,7 @@ from typing import Any, Dict
 
 import torch
 from torch.utils.data import DataLoader, Subset
+from tqdm import tqdm
 
 from awseg.dataset import build_dataset, get_class_names
 from awseg.metrics import SegmentationMetric, format_class_iou
@@ -207,7 +209,17 @@ def evaluate_split(
     condition_metrics: dict[str, SegmentationMetric] = {}
     num_images_by_condition: dict[str, int] = defaultdict(int)
 
-    for batch in dataloader:
+    progress_bar = tqdm(
+        dataloader,
+        total=len(dataloader),
+        desc="Evaluate",
+        dynamic_ncols=True,
+        mininterval=5,
+        file=sys.stdout,
+        leave=True,
+    )
+
+    for batch in progress_bar:
         if "mask" not in batch:
             raise ValueError("This split has no labels, so mIoU cannot be computed.")
 

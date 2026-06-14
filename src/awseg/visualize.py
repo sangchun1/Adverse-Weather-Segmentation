@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import random
 import re
+import sys
 from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -14,6 +15,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+from tqdm import tqdm
 
 from awseg.dataset import build_dataset
 from awseg.models import build_model
@@ -60,10 +62,8 @@ def split_csv_exists(config: Dict[str, Any], split: str) -> bool:
     data_config = config["data"]
     root = Path(data_config.get("root", "."))
     split_dir = Path(data_config.get("split_dir", "data/splits"))
-
     if not split_dir.is_absolute():
         split_dir = root / split_dir
-
     return (split_dir / f"{split}.csv").exists()
 
 
@@ -73,11 +73,9 @@ def load_model_checkpoint(
     device: torch.device,
 ) -> Dict[str, Any]:
     checkpoint = torch.load(checkpoint_path, map_location=device)
-
     if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint:
         model.load_state_dict(checkpoint["model_state_dict"])
         return checkpoint
-
     model.load_state_dict(checkpoint)
     return {"model_state_dict": checkpoint}
 
@@ -85,12 +83,10 @@ def load_model_checkpoint(
 def denormalize_image(image_tensor: torch.Tensor, config: Dict[str, Any]) -> np.ndarray:
     mean = np.array(config["data"].get("mean", [0.485, 0.456, 0.406]), dtype=np.float32)
     std = np.array(config["data"].get("std", [0.229, 0.224, 0.225]), dtype=np.float32)
-
     image = image_tensor.detach().cpu().float().numpy()
     image = np.transpose(image, (1, 2, 0))
     image = image * std + mean
     image = np.clip(image, 0.0, 1.0)
-
     return (image * 255.0).astype(np.uint8)
 
 
@@ -98,10 +94,8 @@ def colorize_mask(mask: np.ndarray, num_classes: int = 19, ignore_index: int = 2
     mask = mask.astype(np.int64)
     height, width = mask.shape
     color_mask = np.zeros((height, width, 3), dtype=np.uint8)
-
     for class_id in range(num_classes):
         color_mask[mask == class_id] = CITYSCAPES_PALETTE[class_id]
-
     color_mask[mask == ignore_index] = np.array([0, 0, 0], dtype=np.uint8)
     return color_mask
 
@@ -129,7 +123,6 @@ def save_visualization(
 ) -> None:
     num_classes = int(config["data"]["num_classes"])
     ignore_index = int(config["data"].get("ignore_index", 255))
-
     pred_color = colorize_mask(pred_mask, num_classes=num_classes, ignore_index=ignore_index)
     pred_overlay = make_overlay(image, pred_color, alpha=alpha)
 
@@ -140,7 +133,6 @@ def save_visualization(
         panels = [("Image", image), ("Prediction", pred_color), ("Overlay", pred_overlay)]
 
     fig, axes = plt.subplots(1, len(panels), figsize=(4 * len(panels), 4))
-
     if len(panels) == 1:
         axes = [axes]
 
@@ -159,15 +151,8 @@ def save_visualization(
 
 
 def build_records(config: Dict[str, Any], split: str, include_normal: bool, normal_split: str) -> list[dict[str, Any]]:
-    """Build records from main split and optional normal rows.
-
-    normal.csv contains rows for train/val/test together, so this function keeps
-    only rows where normal.csv's split column matches the requested split.
-    """
     records: list[dict[str, Any]] = []
-
     main_dataset = build_dataset(config, split=split)
-
     for idx, sample in enumerate(main_dataset.samples):
         records.append(
             {
@@ -181,11 +166,9 @@ def build_records(config: Dict[str, Any], split: str, include_normal: bool, norm
 
     if include_normal and split_csv_exists(config, normal_split):
         normal_dataset = build_dataset(config, split=normal_split)
-
         for idx, sample in enumerate(normal_dataset.samples):
             if str(sample.get("split", "")) != split:
                 continue
-
             records.append(
                 {
                     "dataset": normal_dataset,
@@ -195,7 +178,6 @@ def build_records(config: Dict[str, Any], split: str, include_normal: bool, norm
                     "source": normal_split,
                 }
             )
-
     elif include_normal:
         print(f"[WARN] data/splits/{normal_split}.csv not found. Skipping normal samples.")
 
@@ -215,41 +197,30 @@ def select_records(
 
     if condition is not None:
         filtered = [record for record in records if record["condition"] == condition]
-
         if shuffle:
             rng.shuffle(filtered)
-
         n = samples_per_condition if samples_per_condition is not None else num_samples
         return filtered[:n]
 
     if samples_per_condition is not None:
         records_by_condition: dict[str, list[dict[str, Any]]] = defaultdict(list)
-
         for record in records:
             records_by_condition[record["condition"]].append(record)
 
         selected: list[dict[str, Any]] = []
         preferred_order = ["fog", "rain", "snow", "night", "normal"]
-        remaining = [
-            name for name in sorted(records_by_condition.keys())
-            if name not in preferred_order
-        ]
+        remaining = [name for name in sorted(records_by_condition.keys()) if name not in preferred_order]
 
         for condition_name in preferred_order + remaining:
             if condition_name not in records_by_condition:
                 continue
-
             condition_records = records_by_condition[condition_name].copy()
-
             if shuffle:
                 rng.shuffle(condition_records)
-
             selected.extend(condition_records[:samples_per_condition])
-
         return selected
 
     selected = records.copy()
-
     if shuffle:
         rng.shuffle(selected)
         return selected[:num_samples]
@@ -279,13 +250,7 @@ def visualize_predictions(
     device = torch.device(device_arg) if device_arg is not None else get_device()
     print(f"Using device: {device}")
 
-    records = build_records(
-        config=config,
-        split=split,
-        include_normal=include_normal,
-        normal_split=normal_split,
-    )
-
+    records = build_records(config=config, split=split, include_normal=include_normal, normal_split=normal_split)
     selected_records = select_records(
         records=records,
         num_samples=num_samples,
@@ -298,22 +263,16 @@ def visualize_predictions(
 
     if len(selected_records) == 0:
         available_conditions = sorted({record["condition"] for record in records})
-        raise ValueError(
-            f"No samples selected. condition={condition}. "
-            f"Available conditions: {available_conditions}"
-        )
+        raise ValueError(f"No samples selected. condition={condition}. Available conditions: {available_conditions}")
 
     model = build_model(config).to(device)
     checkpoint = load_model_checkpoint(model, checkpoint_path, device)
-
     if "epoch" in checkpoint:
         print(f"Loaded checkpoint epoch: {checkpoint['epoch']}")
-
     if "best_miou" in checkpoint:
         print(f"Checkpoint best mIoU: {float(checkpoint['best_miou']):.4f}")
 
     model.eval()
-
     output_dir = ensure_dir(output_dir)
 
     condition_count: dict[str, int] = defaultdict(int)
@@ -326,14 +285,23 @@ def visualize_predictions(
         print(f"  {condition_name}: {condition_count[condition_name]}")
     print(f"Output directory: {output_dir}")
 
-    for save_index, record in enumerate(selected_records):
+    progress_bar = tqdm(
+        enumerate(selected_records),
+        total=len(selected_records),
+        desc="Visualize",
+        dynamic_ncols=True,
+        mininterval=2,
+        file=sys.stdout,
+        leave=True,
+    )
+
+    for save_index, record in progress_bar:
         dataset = record["dataset"]
         dataset_index = record["index"]
         sample = dataset[dataset_index]
 
         image_tensor = sample["image"]
         image = denormalize_image(image_tensor, config)
-
         input_tensor = image_tensor.unsqueeze(0).to(device)
         logits = model(input_tensor)
         pred_mask = torch.argmax(logits, dim=1)[0].detach().cpu().numpy()
@@ -344,15 +312,9 @@ def visualize_predictions(
 
         sample_condition = str(sample.get("condition", record["condition"]))
         image_path = sample.get("image_path", f"sample_{dataset_index}")
-
         filename = f"{save_index:05d}_{sample_condition}_{safe_filename(image_path)}.png"
         output_path = output_dir / filename
-
-        title = (
-            f"source={record['source']} | "
-            f"split={record['csv_split']} | "
-            f"condition={sample_condition}"
-        )
+        title = f"source={record['source']} | split={record['csv_split']} | condition={sample_condition}"
 
         save_visualization(
             image=image,
@@ -364,14 +326,12 @@ def visualize_predictions(
             alpha=alpha,
             dpi=dpi,
         )
-
-        print(f"Saved: {output_path}")
+        progress_bar.set_postfix(condition=sample_condition)
 
 
 def main() -> None:
     args = parse_args()
     config = load_config(args.config)
-
     visualize_predictions(
         config=config,
         checkpoint_path=args.checkpoint,

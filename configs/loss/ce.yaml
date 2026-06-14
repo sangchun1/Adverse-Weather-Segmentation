@@ -1,7 +1,0 @@
-experiment:
-  name: loss_ce
-  group: loss
-
-loss:
-  name: "cross_entropy"
-  ignore_index: 255

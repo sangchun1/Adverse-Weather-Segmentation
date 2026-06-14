@@ -1,0 +1,8 @@
+{
+  "config": "configs/final.yaml",
+  "checkpoint": "outputs/checkpoints/final/best_miou.pth",
+  "split": "val",
+  "condition": "none",
+  "num_images": 406,
+  "output_dir": "outputs/analysis/final"
+}

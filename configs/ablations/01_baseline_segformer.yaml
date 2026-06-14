@@ -1,9 +1,8 @@
-# Final model 설정
-# 최종 best 조합을 통합한 config
-
+# Ablation 01
+# Baseline: SegFormer + CrossEntropy, no augmentation, no enhancement
 experiment:
-  name: final
-  group: final
+  name: ablation_01_baseline_segformer
+  group: ablation
 
 seed: 42
 
@@ -19,7 +18,6 @@ data:
   num_classes: 19
   ignore_index: 255
 
-  # ImageNet normalization
   mean: [0.485, 0.456, 0.406]
   std: [0.229, 0.224, 0.225]
 
@@ -48,7 +46,6 @@ model:
   name: "segformer"
   pretrained_name: "nvidia/segformer-b2-finetuned-cityscapes-1024-1024"
   num_classes: 19
-
   dropout: 0.1
   drop_path_rate: 0.1
   freeze_mode: "full"
@@ -57,15 +54,8 @@ model:
   ignore_mismatched_sizes: false
 
 loss:
-  name: "ce_tversky"
+  name: "cross_entropy"
   ignore_index: 255
-
-  ce_weight: 1.0
-  dice_weight: 1.0
-
-  alpha: 0.3
-  beta: 0.7
-  smooth: 1.0
 
 optimizer:
   name: "adamw"
@@ -93,56 +83,18 @@ train:
   val_interval: 1
 
 augmentation:
-  enabled: true
-  name: "jitter"
-
-  basic:
-    color_jitter:
-      enabled: true
-      prob: 1.0
-      brightness: 0.2
-      contrast: 0.2
-      saturation: 0.1
-      hue: 0.05
+  enabled: false
+  name: "none"
 
   weather:
-    enabled: true
-    mode: "condition_specific"
-    apply_splits: ["train", "val", "test"]
-
-    fog:
-      enabled: true
-      effect: "haze"
-      haze:
-        prob: 1.0
-        intensity_range: [0.15, 0.4]
-        atmospheric_light_range: [180, 255]
-
-    rain:
-      enabled: true
-      effect: "streak"
-      streak:
-        prob: 1.0
-        streak_count_range: [150, 600]
-        streak_length_range: [8, 24]
-        streak_angle_range: [-25, 25]
-        alpha_range: [0.1, 0.3]
-
-    snow:
-      enabled: false
-
-    night:
-      enabled: false
+    enabled: false
 
 enhancement:
-  enabled: true
-  name: "gamma"
-  gamma: 0.6
-  apply_to: "all"
-  apply_conditions: ["night"]
+  enabled: false
+  name: "none"
 
 checkpoint:
-  save_dir: "outputs/checkpoints/final"
+  save_dir: "outputs/checkpoints/ablations/01_baseline_segformer"
   save_best_name: "best_miou.pth"
   save_last_name: "last.pth"
   monitor: "val_miou"
@@ -159,28 +111,24 @@ wandb:
   enabled: true
   project: "adverse-weather-segmentation"
   entity: null
-  run_name: "segformer_final"
+  run_name: "ablation_01_baseline_segformer"
   tags:
-    - final
+    - ablation
     - segformer
-    - ce_tversky
-    - jitter
-    - fog_haze
-    - rain_streak
-    - gamma
-    - acdc
-    - adverse-weather
-  notes: "Final model with SegFormer, CE+Tversky loss, color jitter, fog/rain weather-specific augmentation, and night gamma enhancement."
+    - cross_entropy
+    - no_augmentation
+    - no_enhancement
+  notes: "Ablation 01: SegFormer baseline with CrossEntropy only."
   dir: "outputs"
 
 evaluate:
   batch_size: 4
   num_workers: 0
   save_predictions: true
-  output_dir: "outputs/results/final"
+  output_dir: "outputs/results/ablations/01_baseline_segformer"
 
 output:
-  checkpoint_dir: "outputs/checkpoints/final"
-  result_dir: "outputs/results/final"
-  log_dir: "outputs/logs/final"
-  visualization_dir: "outputs/visualizations/final"
+  checkpoint_dir: "outputs/checkpoints/ablations/01_baseline_segformer"
+  result_dir: "outputs/results/ablations/01_baseline_segformer"
+  log_dir: "outputs/logs/ablations/01_baseline_segformer"
+  visualization_dir: "outputs/visualizations/ablations/01_baseline_segformer"

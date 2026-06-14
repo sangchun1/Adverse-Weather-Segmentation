@@ -1,9 +1,8 @@
-# Final model 설정
-# 최종 best 조합을 통합한 config
-
+# Ablation 04
+# SegFormer + CE+Tversky + Color Jitter + Gamma, no weather augmentation
 experiment:
-  name: final
-  group: final
+  name: ablation_04_color_jitter_gamma
+  group: ablation
 
 seed: 42
 
@@ -19,7 +18,6 @@ data:
   num_classes: 19
   ignore_index: 255
 
-  # ImageNet normalization
   mean: [0.485, 0.456, 0.406]
   std: [0.229, 0.224, 0.225]
 
@@ -48,7 +46,6 @@ model:
   name: "segformer"
   pretrained_name: "nvidia/segformer-b2-finetuned-cityscapes-1024-1024"
   num_classes: 19
-
   dropout: 0.1
   drop_path_rate: 0.1
   freeze_mode: "full"
@@ -59,10 +56,8 @@ model:
 loss:
   name: "ce_tversky"
   ignore_index: 255
-
   ce_weight: 1.0
   dice_weight: 1.0
-
   alpha: 0.3
   beta: 0.7
   smooth: 1.0
@@ -99,40 +94,14 @@ augmentation:
   basic:
     color_jitter:
       enabled: true
-      prob: 1.0
+      prob: 0.5
       brightness: 0.2
       contrast: 0.2
       saturation: 0.1
       hue: 0.05
 
   weather:
-    enabled: true
-    mode: "condition_specific"
-    apply_splits: ["train", "val", "test"]
-
-    fog:
-      enabled: true
-      effect: "haze"
-      haze:
-        prob: 1.0
-        intensity_range: [0.15, 0.4]
-        atmospheric_light_range: [180, 255]
-
-    rain:
-      enabled: true
-      effect: "streak"
-      streak:
-        prob: 1.0
-        streak_count_range: [150, 600]
-        streak_length_range: [8, 24]
-        streak_angle_range: [-25, 25]
-        alpha_range: [0.1, 0.3]
-
-    snow:
-      enabled: false
-
-    night:
-      enabled: false
+    enabled: false
 
 enhancement:
   enabled: true
@@ -142,7 +111,7 @@ enhancement:
   apply_conditions: ["night"]
 
 checkpoint:
-  save_dir: "outputs/checkpoints/final"
+  save_dir: "outputs/checkpoints/ablations/04_color_jitter_gamma"
   save_best_name: "best_miou.pth"
   save_last_name: "last.pth"
   monitor: "val_miou"
@@ -159,28 +128,25 @@ wandb:
   enabled: true
   project: "adverse-weather-segmentation"
   entity: null
-  run_name: "segformer_final"
+  run_name: "ablation_04_color_jitter_gamma"
   tags:
-    - final
+    - ablation
     - segformer
     - ce_tversky
-    - jitter
-    - fog_haze
-    - rain_streak
+    - color_jitter
     - gamma
-    - acdc
-    - adverse-weather
-  notes: "Final model with SegFormer, CE+Tversky loss, color jitter, fog/rain weather-specific augmentation, and night gamma enhancement."
+    - night
+  notes: "Ablation 04: CE+Tversky with Color Jitter and night Gamma enhancement."
   dir: "outputs"
 
 evaluate:
   batch_size: 4
   num_workers: 0
   save_predictions: true
-  output_dir: "outputs/results/final"
+  output_dir: "outputs/results/ablations/04_color_jitter_gamma"
 
 output:
-  checkpoint_dir: "outputs/checkpoints/final"
-  result_dir: "outputs/results/final"
-  log_dir: "outputs/logs/final"
-  visualization_dir: "outputs/visualizations/final"
+  checkpoint_dir: "outputs/checkpoints/ablations/04_color_jitter_gamma"
+  result_dir: "outputs/results/ablations/04_color_jitter_gamma"
+  log_dir: "outputs/logs/ablations/04_color_jitter_gamma"
+  visualization_dir: "outputs/visualizations/ablations/04_color_jitter_gamma"
