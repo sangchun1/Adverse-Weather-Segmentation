@@ -7,9 +7,11 @@
 
 <p align="center">
   <a href="https://github.com/sangchun1/Adverse-Weather-Segmentation">Repository</a>
-  · <a href="#설치">Installation</a>
+  · <a href="#개요">Overview</a>
+  · <a href="#프로젝트-구조">Structure</a>
   · <a href="#재현-파이프라인">Reproduction</a>
   · <a href="#실험-결과">Results</a>
+  · <a href="#citation">Citation</a>
 </p>
 
 ---
@@ -18,47 +20,47 @@
 
 악천후 주행 환경에서는 비, 안개, 눈, 야간 조명 변화로 인해 영상의 밝기, 대비, 가시성, texture 정보가 크게 달라진다. 이러한 변화는 자율주행 perception 시스템의 핵심 task인 semantic segmentation 성능을 저하시킬 수 있다.
 
-본 프로젝트는 ACDC 기반 악천후 주행 데이터를 사용하여 U-Net baseline과 SegFormer 기반 모델을 비교하고, loss function, weather-specific augmentation, image enhancement가 악천후 조건별 segmentation 성능에 어떤 영향을 주는지 분석한다.
+본 프로젝트는 ACDC 기반 악천후 주행 데이터를 사용하여 semantic segmentation 모델의 조건별 강건성을 분석한다. 초기 baseline으로는 U-Net을 사용하고, 주요 backbone으로는 SegFormer를 사용한다. 이후 loss function, weather-specific augmentation, image enhancement를 결합하여 rain, fog, snow, night 조건에서의 성능 변화를 비교한다.
 
 이 프로젝트는 다음 질문을 중심으로 진행된다.
 
-- 악천후 조건에서는 normal 조건 대비 segmentation 성능이 어떻게 달라지는가?
+- 악천후 조건에서는 segmentation 성능이 어떻게 달라지는가?
 - U-Net과 SegFormer는 rain, fog, snow, night 조건에서 어떤 차이를 보이는가?
 - Loss function, augmentation, enhancement 중 어떤 접근이 조건별 강건성 개선에 효과적인가?
 - 전체 mIoU 개선과 특정 weather condition 개선 사이에 trade-off가 존재하는가?
 
 <p align="center">
-  <img src="assets/figures/overview_pipeline.png" width="850" alt="Overall pipeline">
+  <img src="figures/overview_pipeline.png" width="850" alt="Overall pipeline">
 </p>
 <p align="center">
-  <b>Figure 1.</b> 전체 연구 파이프라인. <i>TODO: 최종 pipeline figure 추가</i>
+  <b>Figure 1.</b> 전체 연구 파이프라인. <i>TODO: figures/overview_pipeline.png 추가</i>
 </p>
 
 ---
 
 ## 주요 방법
 
-본 프로젝트는 먼저 CNN 기반 U-Net을 초기 baseline으로 사용하고, 이후 SegFormer를 주요 비교 기준으로 설정한다. 이후 모든 개선 실험은 SegFormer baseline을 기준으로 수행한다.
+본 프로젝트는 U-Net baseline에서 시작해 SegFormer 기반 실험으로 확장한다. 최종 설정은 `configs/final.yaml`에 정리되어 있으며, SegFormer backbone, CE+Tversky loss, color jitter, fog/rain weather augmentation, night gamma enhancement를 조합한다.
 
 ### 1. Baseline Models
 
-- **U-Net**  
-  Encoder-decoder 구조와 skip connection을 사용하는 CNN 기반 semantic segmentation baseline.
-
-- **SegFormer**  
-  Hierarchical transformer encoder와 lightweight decoder를 사용하는 transformer 기반 segmentation 모델. 본 프로젝트의 주요 실험 backbone으로 사용한다.
+| Model | 역할 | 설정 파일 |
+|---|---|---|
+| U-Net | CNN 기반 초기 baseline | `configs/unet_baseline.yaml` |
+| SegFormer | Transformer 기반 주요 baseline | `configs/segformer_baseline.yaml` |
+| Final SegFormer | 최종 조합 모델 | `configs/final.yaml` |
 
 ### 2. Loss Function
 
 Class imbalance와 hard pixel 문제를 완화하기 위해 여러 segmentation loss를 비교한다.
 
-| Loss | 목적 | 비고 |
+| Loss | 목적 | 구현 위치 |
 |---|---|---|
-| Cross-Entropy | 기본 픽셀 단위 분류 손실 | Baseline |
-| Dice Loss | 작은 객체 및 class imbalance 완화 | TODO |
-| Focal Loss | hard pixel에 더 큰 가중치 부여 | TODO |
-| Tversky Loss | false positive / false negative 균형 조절 | TODO |
-| Hybrid Loss | CE, Dice, Focal, Tversky 계열 조합 | TODO |
+| Cross-Entropy | 기본 픽셀 단위 분류 손실 | `src/awseg/losses/cross_entropy.py` |
+| Dice Loss | 작은 객체 및 class imbalance 완화 | `src/awseg/losses/dice.py` |
+| Focal Loss | hard pixel에 더 큰 가중치 부여 | `src/awseg/losses/focal.py` |
+| Tversky Loss | false positive / false negative 균형 조절 | `src/awseg/losses/tversky.py` |
+| Lovasz / OHEM / Hybrid | IoU surrogate, hard example mining, 조합 손실 | `src/awseg/losses/` |
 
 ### 3. Weather-specific Augmentation
 
@@ -66,7 +68,6 @@ Class imbalance와 hard pixel 문제를 완화하기 위해 여러 segmentation 
 
 | Augmentation | 적용 목적 | 대상 조건 |
 |---|---|---|
-| Flip / Crop | 기본적인 공간적 일반화 | All |
 | Color Jitter | 밝기, 대비, 채도 변화에 대한 강건성 | All |
 | Synthetic Rain | 빗줄기 및 contrast 변화 반영 | Rain |
 | Synthetic Fog | haze 및 저가시성 반영 | Fog |
@@ -74,10 +75,10 @@ Class imbalance와 hard pixel 문제를 완화하기 위해 여러 segmentation 
 | Synthetic Night | 저조도 및 조명 변화 반영 | Night |
 
 <p align="center">
-  <img src="assets/figures/augmentation_examples.png" width="850" alt="Augmentation examples">
+  <img src="figures/augmentation_examples.png" width="850" alt="Augmentation examples">
 </p>
 <p align="center">
-  <b>Figure 2.</b> Augmentation 적용 예시. <i>TODO: original / color jitter / weather-specific augmentation 비교 이미지 추가</i>
+  <b>Figure 2.</b> Augmentation 적용 예시. <i>TODO: figures/augmentation_examples.png 추가</i>
 </p>
 
 ### 4. Image Enhancement
@@ -91,10 +92,10 @@ Class imbalance와 hard pixel 문제를 완화하기 위해 여러 segmentation 
 | Gamma + CLAHE | 밝기 보정과 지역 대비 향상 결합 | 단일 enhancement 대비 보완 효과 분석 |
 
 <p align="center">
-  <img src="assets/figures/enhancement_examples.png" width="850" alt="Enhancement examples">
+  <img src="figures/enhancement_examples.png" width="850" alt="Enhancement examples">
 </p>
 <p align="center">
-  <b>Figure 3.</b> Image enhancement 적용 예시. <i>TODO: original / gamma / CLAHE / gamma+CLAHE 비교 이미지 추가</i>
+  <b>Figure 3.</b> Image enhancement 적용 예시. <i>TODO: figures/enhancement_examples.png 추가</i>
 </p>
 
 ---
@@ -106,7 +107,8 @@ Class imbalance와 hard pixel 문제를 완화하기 위해 여러 segmentation 
 본 프로젝트는 ACDC 기반의 악천후 주행 장면 데이터를 사용한다. Semantic segmentation label은 Cityscapes-style 19개 class를 기준으로 한다.
 
 - **Task**: 19-class semantic segmentation
-- **Conditions**: normal, rain, fog, snow, night
+- **Conditions**: fog, night, rain, snow
+- **Reference condition**: normal reference image는 `normal.csv`로 별도 생성 가능
 - **Input**: RGB driving scene image
 - **Label**: pixel-wise semantic mask
 - **Main metric**: mIoU, condition-wise mIoU, class-wise IoU
@@ -121,7 +123,7 @@ motorcycle, bicycle
 
 ### 데이터 구조
 
-아래와 같은 구조로 `data/raw/`에 배치한 뒤 split CSV를 생성한다.
+원본 ACDC 데이터는 repository에 포함하지 않는다. 아래 구조로 `data/raw/`에 직접 배치한 뒤 split CSV를 생성한다.
 
 ```text
 data/
@@ -142,25 +144,25 @@ data/
     └── test.csv
 ```
 
-> `data/raw/`에는 ACDC 원본 이미지와 label을 직접 배치해야 한다. 데이터셋 라이선스 문제로 원본 이미지는 이 repository에 포함하지 않는다.
+`prepare_dataset.py`는 기본적으로 `data/splits/train.csv`, `data/splits/val.csv`, `data/splits/test.csv`를 생성한다. `--skip-normal`을 사용하지 않으면 normal reference image를 모아 `data/splits/normal.csv`도 함께 생성한다.
 
 ---
 
-## 평가
+## 평가 지표
 
 모델 성능은 전체 성능과 조건별 성능을 함께 평가한다.
 
 - **Overall mIoU**: 전체 validation/test set 기준 평균 IoU
-- **Condition-wise mIoU**: normal, rain, fog, snow, night 조건별 mIoU
+- **Condition-wise mIoU**: fog, night, rain, snow 조건별 mIoU
 - **Class-wise IoU**: 19개 semantic class별 IoU
 - **Qualitative result**: RGB image, ground truth, prediction 비교
 - **Error map**: 오분류 픽셀 위치 시각화
 
 <p align="center">
-  <img src="assets/figures/qualitative_examples.png" width="850" alt="Qualitative examples">
+  <img src="figures/qualitative_examples.png" width="850" alt="Qualitative examples">
 </p>
 <p align="center">
-  <b>Figure 4.</b> 정성적 결과 예시. <i>TODO: RGB / GT / baseline prediction / proposed prediction / error map 추가</i>
+  <b>Figure 4.</b> 정성적 결과 예시. <i>TODO: figures/qualitative_examples.png 추가</i>
 </p>
 
 ---
@@ -171,61 +173,46 @@ data/
 
 ### 1. U-Net vs SegFormer Baseline
 
-| Model | Overall mIoU | Normal | Rain | Fog | Snow | Night |
-|---|---:|---:|---:|---:|---:|---:|
-| U-Net | TODO | TODO | TODO | TODO | TODO | TODO |
-| SegFormer | TODO | TODO | TODO | TODO | TODO | TODO |
+| Model | Config | Overall mIoU | Fog | Night | Rain | Snow |
+|---|---|---:|---:|---:|---:|---:|
+| U-Net | `configs/unet_baseline.yaml` | TODO | TODO | TODO | TODO | TODO |
+| SegFormer | `configs/segformer_baseline.yaml` | TODO | TODO | TODO | TODO | TODO |
 
 <p align="center">
-  <img src="assets/figures/baseline_condition_miou.png" width="750" alt="Baseline condition-wise mIoU">
+  <img src="figures/baseline_condition_miou.png" width="750" alt="Baseline condition-wise mIoU">
 </p>
 <p align="center">
-  <b>Figure 5.</b> U-Net과 SegFormer의 condition-wise mIoU 비교. <i>TODO</i>
+  <b>Figure 5.</b> U-Net과 SegFormer의 condition-wise mIoU 비교. <i>TODO: figures/baseline_condition_miou.png 추가</i>
 </p>
 
-### 2. Loss Function 비교
+### 2. Ablation Study
 
-| Model | Loss | Overall mIoU | Rain | Fog | Snow | Night |
+| Experiment | Config | 핵심 변경 | Overall mIoU | Fog | Night | Rain | Snow |
+|---|---|---|---:|---:|---:|---:|---:|
+| Baseline SegFormer | `01_baseline_segformer.yaml` | SegFormer baseline | TODO | TODO | TODO | TODO | TODO |
+| CE + Tversky | `02_ce_tversky.yaml` | Loss 변경 | TODO | TODO | TODO | TODO | TODO |
+| Color Jitter | `03_color_jitter.yaml` | Basic augmentation | TODO | TODO | TODO | TODO | TODO |
+| Color Jitter + Gamma | `04_color_jitter_gamma.yaml` | Augmentation + enhancement | TODO | TODO | TODO | TODO | TODO |
+| Color Jitter + Weather Aug | `05_color_jitter_weather_aug.yaml` | Weather-specific augmentation | TODO | TODO | TODO | TODO | TODO |
+| Final All | `06_final_all.yaml` | 최종 조합 | TODO | TODO | TODO | TODO | TODO |
+
+### 3. Final Model
+
+| Model | Config | Overall mIoU | Fog | Night | Rain | Snow |
 |---|---|---:|---:|---:|---:|---:|
-| SegFormer | Cross-Entropy | TODO | TODO | TODO | TODO | TODO |
-| SegFormer | Dice | TODO | TODO | TODO | TODO | TODO |
-| SegFormer | Focal | TODO | TODO | TODO | TODO | TODO |
-| SegFormer | Tversky | TODO | TODO | TODO | TODO | TODO |
-| SegFormer | Hybrid | TODO | TODO | TODO | TODO | TODO |
+| SegFormer Final | `configs/final.yaml` | TODO | TODO | TODO | TODO | TODO |
 
-### 3. Augmentation 비교
-
-| Model | Augmentation | Overall mIoU | Rain | Fog | Snow | Night |
-|---|---|---:|---:|---:|---:|---:|
-| SegFormer | None | TODO | TODO | TODO | TODO | TODO |
-| SegFormer | Color Jitter | TODO | TODO | TODO | TODO | TODO |
-| SegFormer | Weather-specific | TODO | TODO | TODO | TODO | TODO |
-| SegFormer | All | TODO | TODO | TODO | TODO | TODO |
-
-### 4. Image Enhancement 비교
-
-| Model | Enhancement | Overall mIoU | Rain | Fog | Snow | Night |
-|---|---|---:|---:|---:|---:|---:|
-| SegFormer | None | TODO | TODO | TODO | TODO | TODO |
-| SegFormer | Gamma | TODO | TODO | TODO | TODO | TODO |
-| SegFormer | CLAHE | TODO | TODO | TODO | TODO | TODO |
-| SegFormer | Gamma + CLAHE | TODO | TODO | TODO | TODO | TODO |
-
-### 5. 최종 모델 비교
-
-| Model | Setting | Overall mIoU | Normal | Rain | Fog | Snow | Night |
-|---|---|---:|---:|---:|---:|---:|---:|
-| U-Net | Baseline | TODO | TODO | TODO | TODO | TODO | TODO |
-| SegFormer | Baseline | TODO | TODO | TODO | TODO | TODO | TODO |
-| SegFormer | Best Loss | TODO | TODO | TODO | TODO | TODO | TODO |
-| SegFormer | Best Augmentation | TODO | TODO | TODO | TODO | TODO | TODO |
-| SegFormer | Best Enhancement | TODO | TODO | TODO | TODO | TODO | TODO |
-| SegFormer | Proposed | TODO | TODO | TODO | TODO | TODO | TODO |
+<p align="center">
+  <img src="figures/final_comparison.png" width="750" alt="Final model comparison">
+</p>
+<p align="center">
+  <b>Figure 6.</b> Final model 성능 비교. <i>TODO: figures/final_comparison.png 추가</i>
+</p>
 
 ### 주요 분석 요약
 
 - **TODO**: 전체 mIoU 기준 가장 좋은 방법 정리
-- **TODO**: rain / fog / snow / night 조건별 가장 효과적인 방법 정리
+- **TODO**: fog / night / rain / snow 조건별 가장 효과적인 방법 정리
 - **TODO**: 특정 condition 개선이 전체 성능에 미친 trade-off 정리
 - **TODO**: class-wise IoU에서 개선 또는 악화가 뚜렷한 class 정리
 
@@ -272,157 +259,266 @@ pip install -e .
 pip install -e ".[dev]"
 ```
 
+모든 optional dependency를 함께 설치하려면 다음을 사용한다.
+
+```bash
+pip install -e ".[all]"
+```
+
 ---
 
 ## 재현 파이프라인
 
-일반적인 전체 실행 흐름은 다음과 같다.
+현재 main branch의 실행 스크립트는 크게 두 개이다.
 
-```bash
-# 1. 환경 활성화
-conda activate awseg
+- `scripts/run.sh`: 단일 config 기준 final pipeline 실행
+- `scripts/run_ablations.sh`: `configs/ablations/*.yaml`을 순차 실행
 
-# 2. 데이터 split CSV 생성
-python scripts/prepare_dataset.py
+두 스크립트 모두 `nohup`으로 백그라운드 실행되며, 학습 이후 evaluation, visualization, error analysis, plot 생성까지 이어서 수행한다.
 
-# 3. Baseline 학습
-bash scripts/run_baseline.sh
+### 0. 데이터 split 생성
 
-# 4. 모델 비교 실험
-bash scripts/run_model.sh
-
-# 5. Loss 실험
-# 예: configs/loss/*.yaml 설정을 사용하여 실행
-# bash scripts/<loss_run_script>.sh
-
-# 6. Augmentation 실험
-# 예: configs/augmentation/*.yaml 설정을 사용하여 실행
-# bash scripts/<augmentation_run_script>.sh
-
-# 7. Enhancement 실험
-bash scripts/run_enhancement.sh
-
-# 8. 최종 proposed 설정 학습
-bash scripts/run_proposed.sh
-```
-
----
-
-## 데이터셋 준비
-
-`data/raw/` 아래에 RGB image와 ground-truth label을 배치한 뒤 split CSV를 생성한다.
+원본 데이터가 repository root의 `data/raw/`에 있는 경우:
 
 ```bash
 python scripts/prepare_dataset.py
 ```
 
-생성 결과는 다음과 같다.
+원본 데이터의 parent 경로가 다른 경우:
+
+```bash
+python scripts/prepare_dataset.py \
+  --raw-data-parent /path/to/dataset-parent \
+  --output-dir data/splits
+```
+
+normal reference split을 만들지 않으려면 다음을 사용한다.
+
+```bash
+python scripts/prepare_dataset.py --skip-normal
+```
+
+생성되는 CSV column은 다음과 같다.
 
 ```text
-data/splits/
-├── train.csv
-├── val.csv
-└── test.csv
+image_path,label_path,condition,split
 ```
 
-각 CSV는 학습, 검증, 테스트에 사용할 image path, label path, condition 정보를 포함한다.
+### 1. Final pipeline 전체 실행
 
----
-
-## 학습
-
-### Baseline 학습
+기본값은 `configs/final.yaml`, 전체 adverse-weather 조건, `cuda:0`이다.
 
 ```bash
-bash scripts/run_baseline.sh
+bash scripts/run.sh
 ```
 
-### SegFormer / 모델 비교 실험
+명시적으로 config, condition, device를 지정하려면 다음처럼 실행한다.
 
 ```bash
-bash scripts/run_model.sh
+bash scripts/run.sh configs/final.yaml "" cuda:0
 ```
 
-### Enhancement 실험
+특정 condition만 사용하려면 두 번째 인자에 `fog`, `night`, `rain`, `snow` 중 하나를 넣는다.
 
 ```bash
-bash scripts/run_enhancement.sh
+bash scripts/run.sh configs/final.yaml night cuda:0
 ```
 
-### Proposed 모델 학습
+환경변수로도 지정할 수 있다.
 
 ```bash
-bash scripts/run_proposed.sh
+CONDITION=night DEVICE=cuda:1 bash scripts/run.sh
 ```
 
-학습 결과는 기본적으로 `outputs/` 아래에 저장된다.
+실행 결과는 condition 지정 여부에 따라 다음 위치에 저장된다.
 
 ```text
-outputs/
-├── checkpoints/
-├── logs/
-├── results/
-├── visualizations/
-├── analysis/
-└── wandb/
+# 전체 조건 실행
+outputs/results/final/
+outputs/visualizations/final/
+outputs/analysis/final/
+outputs/logs/final_YYYYMMDD_HHMMSS.log
+
+# 특정 조건 실행 예: night
+outputs/results/final_night/
+outputs/visualizations/final_night/
+outputs/analysis/final_night/
+outputs/logs/final_night_YYYYMMDD_HHMMSS.log
 ```
 
----
-
-## 평가
-
-학습된 checkpoint를 사용하여 validation 또는 test split에서 평가한다.
+로그 확인:
 
 ```bash
-python -m awseg.evaluate \
-  --config configs/proposed.yaml \
-  --checkpoint outputs/checkpoints/proposed/best_miou.pth \
-  --split val \
+tail -f outputs/logs/final_YYYYMMDD_HHMMSS.log
+```
+
+### 2. Ablation study 전체 실행
+
+`configs/ablations/` 아래의 모든 YAML을 순서대로 실행한다.
+
+```bash
+bash scripts/run_ablations.sh cuda:0
+```
+
+특정 ablation만 실행하려면 `EXPERIMENTS`에 파일명 또는 확장자를 제외한 이름을 지정한다.
+
+```bash
+EXPERIMENTS="01_baseline_segformer 02_ce_tversky" bash scripts/run_ablations.sh cuda:0
+```
+
+다른 GPU를 사용할 경우:
+
+```bash
+DEVICE=cuda:1 bash scripts/run_ablations.sh
+```
+
+실행 결과는 다음 구조로 저장된다.
+
+```text
+outputs/results/ablations/<experiment>/
+outputs/visualizations/ablations/<experiment>/
+outputs/analysis/ablations/<experiment>/
+outputs/checkpoints/ablations/<experiment>/
+outputs/tmp_configs/ablations/<experiment>.yaml
+outputs/logs/ablations_YYYYMMDD_HHMMSS.log
+```
+
+### 3. 수동 학습 / 평가 / 시각화
+
+자동 스크립트를 사용하지 않고 단계별로 실행할 수도 있다.
+
+#### 학습
+
+```bash
+python -m awseg.train \
+  --config configs/final.yaml \
+  --result-dir outputs/results/final \
   --device cuda:0
 ```
 
-다른 GPU를 사용하려면 `--device cuda:1`처럼 수정한다.
-
----
-
-## 시각화 및 Error Analysis
-
-### 결과 plot 생성
+특정 condition만 학습하려면:
 
 ```bash
-python scripts/plot_results.py
-```
-
-### Error map 및 대표 실패/성공 사례 분석
-
-```bash
-python scripts/analyze_errors.py \
+python -m awseg.train \
+  --config configs/final.yaml \
+  --result-dir outputs/results/final_night \
   --condition night \
   --device cuda:0
 ```
 
-`condition`은 다음 중 하나를 사용할 수 있다.
+#### 평가
 
-```text
-none, rain, fog, snow, night
+```bash
+python -m awseg.evaluate \
+  --config configs/final.yaml \
+  --checkpoint outputs/checkpoints/final/best_miou.pth \
+  --split val \
+  --result-dir outputs/results/final \
+  --device cuda:0
 ```
 
-- `none`: 전체 validation set 기준 분석
-- `rain`, `fog`, `snow`, `night`: 해당 악천후 조건만 분석
+#### 시각화
+
+```bash
+python -m awseg.visualize \
+  --config configs/final.yaml \
+  --checkpoint outputs/checkpoints/final/best_miou.pth \
+  --split val \
+  --output-dir outputs/visualizations/final \
+  --samples-per-condition 5 \
+  --shuffle \
+  --seed 42 \
+  --device cuda:0
+```
+
+#### Error analysis
+
+```bash
+python scripts/analyze_errors.py \
+  --group final \
+  --condition none \
+  --config configs/final.yaml \
+  --checkpoint outputs/checkpoints/final/best_miou.pth \
+  --output-dir outputs/analysis/final \
+  --device cuda:0
+```
+
+특정 condition만 분석할 경우:
+
+```bash
+python scripts/analyze_errors.py \
+  --group final \
+  --condition night \
+  --config configs/final.yaml \
+  --checkpoint outputs/checkpoints/final/best_miou.pth \
+  --output-dir outputs/analysis/final_night \
+  --device cuda:0
+```
+
+#### Plot 생성
+
+```bash
+python scripts/plot_results.py \
+  --group final \
+  --output-dir outputs/visualizations/final/plots
+```
+
+특정 result directory를 직접 지정하려면:
+
+```bash
+python scripts/plot_results.py \
+  --eval-file outputs/results/final/eval_val.json \
+  --history-file outputs/results/final/train_history.json \
+  --output-dir outputs/visualizations/final/plots
+```
 
 ---
 
-## 향후 정리할 항목
+## Final Config 요약
 
-- 최종 method별 mIoU table 업데이트
-- condition-wise mIoU plot 추가
-- class-wise IoU plot 추가
-- representative qualitative result 추가
-- error map figure 추가
-- 최종 best config와 checkpoint 경로 정리
-- 논문 형식의 결과 해석 및 한계점 정리
+`configs/final.yaml`의 핵심 설정은 다음과 같다.
+
+| 항목 | 값 |
+|---|---|
+| Model | SegFormer-B2, `nvidia/segformer-b2-finetuned-cityscapes-1024-1024` |
+| Loss | CE + Tversky |
+| Optimizer | AdamW |
+| Scheduler | Poly LR schedule |
+| Epochs | 100 |
+| Batch size | 8 |
+| Input size | 1024 × 512 |
+| Augmentation | Color Jitter + condition-specific fog/rain augmentation |
+| Enhancement | Gamma correction, night condition 적용 |
+| Checkpoint | `outputs/checkpoints/final/best_miou.pth` |
 
 ---
+
+## 빠른 실행 예시
+
+### 전체 final 실험
+
+```bash
+conda activate awseg
+python scripts/prepare_dataset.py
+bash scripts/run.sh configs/final.yaml "" cuda:0
+```
+
+### Night condition만 실험
+
+```bash
+conda activate awseg
+bash scripts/run.sh configs/final.yaml night cuda:0
+```
+
+### Ablation 2개만 실험
+
+```bash
+conda activate awseg
+EXPERIMENTS="01_baseline_segformer 02_ce_tversky" bash scripts/run_ablations.sh cuda:0
+```
+
+---
+
 
 ## Citation
 
