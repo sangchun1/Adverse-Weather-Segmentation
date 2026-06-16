@@ -1,0 +1,137 @@
+# Ablation 07
+# SegFormer + CE+Tversky + Gamma, no Color Jitter, no Weather Augmentation
+experiment:
+  name: ablation_07_gamma
+  group: ablation
+seed: 42
+data:
+  root: .
+  split_dir: data/splits
+  train_csv: train.csv
+  val_csv: val.csv
+  test_csv: test.csv
+  input_width: 1024
+  input_height: 512
+  num_classes: 19
+  ignore_index: 255
+  mean:
+  - 0.485
+  - 0.456
+  - 0.406
+  std:
+  - 0.229
+  - 0.224
+  - 0.225
+  class_names:
+  - road
+  - sidewalk
+  - building
+  - wall
+  - fence
+  - pole
+  - traffic light
+  - traffic sign
+  - vegetation
+  - terrain
+  - sky
+  - person
+  - rider
+  - car
+  - truck
+  - bus
+  - train
+  - motorcycle
+  - bicycle
+model:
+  name: segformer
+  pretrained_name: nvidia/segformer-b2-finetuned-cityscapes-1024-1024
+  num_classes: 19
+  dropout: 0.1
+  drop_path_rate: 0.1
+  freeze_mode: full
+  train_norm_when_frozen: true
+  align_corners: false
+  ignore_mismatched_sizes: false
+loss:
+  name: ce_tversky
+  ignore_index: 255
+  ce_weight: 1.0
+  dice_weight: 1.0
+  alpha: 0.3
+  beta: 0.7
+  smooth: 1.0
+optimizer:
+  name: adamw
+  lr: 6.0e-05
+  use_layerwise_lr: true
+  encoder_lr_mult: 1.0
+  head_lr_mult: 10.0
+  weight_decay: 0.01
+scheduler:
+  name: poly
+  power: 1.0
+  eta_min: 0.0
+  min_lr: 0.0
+  warmup_epochs: 3
+train:
+  epochs: 100
+  batch_size: 8
+  num_workers: 4
+  pin_memory: true
+  amp: true
+  grad_clip_norm: null
+  log_interval: 20
+  val_interval: 1
+augmentation:
+  enabled: false
+  name: none
+  basic:
+    color_jitter:
+      enabled: false
+  weather:
+    enabled: false
+enhancement:
+  enabled: true
+  name: gamma
+  gamma: 0.6
+  apply_to: all
+  apply_conditions:
+  - night
+checkpoint:
+  save_dir: outputs/checkpoints/ablations/07_gamma
+  save_best_name: best_miou.pth
+  save_last_name: last.pth
+  monitor: val_miou
+  mode: max
+early_stopping:
+  enabled: false
+  monitor: val_miou
+  mode: max
+  patience: 15
+  min_delta: 0.0001
+wandb:
+  enabled: true
+  project: adverse-weather-segmentation
+  entity: null
+  run_name: ablation_07_gamma
+  tags:
+  - ablation
+  - segformer
+  - ce_tversky
+  - no_color_jitter
+  - gamma
+  - night
+  - no_weather_aug
+  notes: 'Ablation 07: CE+Tversky with night Gamma enhancement only. No Color Jitter
+    and no Weather Augmentation.'
+  dir: outputs
+evaluate:
+  batch_size: 4
+  num_workers: 0
+  save_predictions: true
+  output_dir: outputs/results/ablations/07_gamma
+output:
+  checkpoint_dir: outputs/checkpoints/ablations/07_gamma
+  result_dir: outputs/results/ablations/07_gamma
+  log_dir: outputs/logs/ablations/07_gamma
+  visualization_dir: outputs/visualizations/ablations/07_gamma

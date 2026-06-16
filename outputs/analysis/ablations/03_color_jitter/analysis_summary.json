@@ -1,0 +1,8 @@
+{
+  "config": "outputs/tmp_configs/ablations/03_color_jitter.yaml",
+  "checkpoint": "outputs/checkpoints/ablations/03_color_jitter/best_miou.pth",
+  "split": "val",
+  "condition": "none",
+  "num_images": 406,
+  "output_dir": "outputs/analysis/ablations/03_color_jitter"
+}

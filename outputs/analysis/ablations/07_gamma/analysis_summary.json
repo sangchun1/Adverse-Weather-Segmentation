@@ -1,0 +1,8 @@
+{
+  "config": "outputs/tmp_configs/ablations/07_gamma.yaml",
+  "checkpoint": "outputs/checkpoints/ablations/07_gamma/best_miou.pth",
+  "split": "val",
+  "condition": "none",
+  "num_images": 406,
+  "output_dir": "outputs/analysis/ablations/07_gamma"
+}

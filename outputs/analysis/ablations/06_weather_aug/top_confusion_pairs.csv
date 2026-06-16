@@ -1,0 +1,16 @@
+gt_class,pred_class,count
+vegetation,sky,1270292
+vegetation,building,1065617
+building,vegetation,983007
+sidewalk,road,818841
+sky,vegetation,690657
+fence,wall,418052
+building,sky,415798
+road,sidewalk,400426
+terrain,vegetation,382336
+fence,building,334216
+fence,vegetation,310875
+terrain,sidewalk,259725
+vegetation,fence,239664
+vegetation,terrain,200695
+sky,building,198037

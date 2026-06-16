@@ -1,0 +1,8 @@
+{
+  "config": "outputs/tmp_configs/ablations/08_weather_aug_gamma.yaml",
+  "checkpoint": "outputs/checkpoints/ablations/08_weather_aug_gamma/best_miou.pth",
+  "split": "val",
+  "condition": "none",
+  "num_images": 406,
+  "output_dir": "outputs/analysis/ablations/08_weather_aug_gamma"
+}

@@ -1,0 +1,8 @@
+{
+  "config": "outputs/tmp_configs/ablations/05_color_jitter_weather_aug.yaml",
+  "checkpoint": "outputs/checkpoints/ablations/05_color_jitter_weather_aug/best_miou.pth",
+  "split": "val",
+  "condition": "none",
+  "num_images": 406,
+  "output_dir": "outputs/analysis/ablations/05_color_jitter_weather_aug"
+}

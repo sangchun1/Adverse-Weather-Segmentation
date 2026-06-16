@@ -1,0 +1,8 @@
+{
+  "config": "outputs/tmp_configs/ablations/01_baseline_segformer.yaml",
+  "checkpoint": "outputs/checkpoints/ablations/01_baseline_segformer/best_miou.pth",
+  "split": "val",
+  "condition": "none",
+  "num_images": 406,
+  "output_dir": "outputs/analysis/ablations/01_baseline_segformer"
+}

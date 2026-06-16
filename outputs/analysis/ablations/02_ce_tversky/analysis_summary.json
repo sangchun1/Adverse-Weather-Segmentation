@@ -1,0 +1,8 @@
+{
+  "config": "outputs/tmp_configs/ablations/02_ce_tversky.yaml",
+  "checkpoint": "outputs/checkpoints/ablations/02_ce_tversky/best_miou.pth",
+  "split": "val",
+  "condition": "none",
+  "num_images": 406,
+  "output_dir": "outputs/analysis/ablations/02_ce_tversky"
+}
